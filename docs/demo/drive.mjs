@@ -5,7 +5,7 @@
 //   node drive.mjs --url http://127.0.0.1:7999 --file /tmp/x/TODO.md \
 //                  --task 3f2a --video /tmp/x/demo.webm
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,6 +19,8 @@ const url = arg('url', 'http://127.0.0.1:7999')
 const file = arg('file')
 const task = arg('task')
 const video = arg('video', 'demo.webm')
+const theme = arg('theme', 'dark')
+const trimFile = arg('trim', 'trim.txt')
 
 const WIDTH = 1000
 const HEIGHT = 620
@@ -101,19 +103,44 @@ async function drag(from, to) {
 
 // ── record ──────────────────────────────────────────────────────────────────
 
-// Dark mode is set through the app's own theme key rather than
-// `agent-browser set media dark`: media emulation leaves the recorder with an
-// empty video (see docs/demo/README.md). `record start` opens a fresh context
-// but keeps localStorage, so the board is dark from its first painted frame.
-ab('open', url)
-ab('eval', "localStorage.setItem('todomd-web:theme', 'dark')")
+ab('open')
+// The video's dimensions are fixed when the recording context is created, and
+// it inherits the viewport set before it — so this has to come first, or the
+// recording silently comes out at the default window size with the board
+// cropped. The second call sizes the new context's own page.
+ab('set', 'viewport', String(WIDTH), String(HEIGHT))
 ab('record', 'start', video)
+const started = Date.now()
 ab('set', 'viewport', String(WIDTH), String(HEIGHT))
 ab('open', url)
 ab('wait', '[data-task]')
+
+// Pinning the theme is fiddlier than it looks (see docs/demo/README.md):
+// `agent-browser set media dark` leaves the recorder with an empty video, and
+// so does a reload inside the recording context — while a fresh context does
+// not inherit the localStorage set before it. So the class is flipped in
+// place, on the loaded page, and the brief lead-in is trimmed off the video.
+ab('eval', `(() => {
+  localStorage.setItem('todomd-web:theme', ${JSON.stringify(theme)})
+  document.documentElement.classList.toggle('dark', ${theme === 'dark'})
+})()`)
+
+const state = evaluate(`[
+  innerWidth, innerHeight, document.documentElement.classList.contains('dark')
+]`)
+if (state[2] !== (theme === 'dark')) {
+  throw new Error(`theme did not apply: wanted ${theme}, got ${state[2] ? 'dark' : 'light'}`)
+}
+if (state[0] !== WIDTH || state[1] !== HEIGHT) {
+  throw new Error(`viewport is ${state[0]}x${state[1]}, wanted ${WIDTH}x${HEIGHT}`)
+}
+
 ab('eval', readFileSync(join(here, 'cursor.js'), 'utf8'))
 ab('mouse', 'move', String(at[0]), String(at[1]))
-await wait(1500)
+await wait(1200)
+
+// Everything before this point is setup; record.sh cuts it from the video.
+writeFileSync(trimFile, String(Math.max(0, (Date.now() - started) / 1000 - 0.5)))
 
 // 1. Open the task an agent has been working on — markdown, highlighted code
 //    and the agent's comment.
@@ -148,4 +175,4 @@ ab('record', 'stop')
 // browser on top of that too early truncates the file.
 await wait(1500)
 ab('close')
-console.log(`recorded ${video}`)
+console.log(`recorded ${video} (${theme})`)

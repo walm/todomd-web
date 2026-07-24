@@ -1,23 +1,26 @@
 # Re-recording the demo gif
 
-`docs/demo.gif` is generated, not hand-recorded. To refresh it after a
-feature change:
+`docs/demo.gif` and `docs/demo-light.gif` are generated, not hand-recorded.
+To refresh them after a feature change:
 
 ```sh
 brew install agent-browser ffmpeg   # once; todomd, go and node you already have
-sh docs/demo/record.sh
+sh docs/demo/record.sh              # both themes
+sh docs/demo/record.sh light        # or just one
 ```
 
 That builds the current binary, seeds a scratch `TODO.md`, serves it on
 `127.0.0.1:7999`, drives a headless browser through the demo, and renders the
-gif (860px, 10fps, ~20s). Nothing outside `/tmp/todomd-web-demo` and
-`docs/demo.gif` is touched.
+gifs (860px, 10fps, ~20s): `docs/demo.gif` for dark and
+`docs/demo-light.gif` for light, which the README picks between with
+`prefers-color-scheme`. Each theme gets a fresh board and a fresh state dir.
+Nothing outside `/tmp/todomd-web-demo` and `docs/demo*.gif` is touched.
 
 The pieces:
 
 | File | What it does |
 |---|---|
-| `record.sh` | Orchestrates: build → seed → serve → drive → ffmpeg |
+| `record.sh` | Orchestrates per theme: build → seed → serve → drive → ffmpeg |
 | `seed.sh` | The board the demo shows. Edit this to change the content |
 | `drive.mjs` | The interactions. Edit this to change what happens |
 | `cursor.js` | Draws the mouse pointer, which the recorder does not |
@@ -33,24 +36,31 @@ The pieces:
 
 ## Hard-won gotchas — read before debugging
 
-1. **`agent-browser set media dark` silently kills the recording.** The video
-   comes out 0.1s long and empty. Dark mode is set through the app's own
-   `todomd-web:theme` localStorage key instead, before `record start` — which
-   opens a fresh context but preserves localStorage, so the board is dark from
-   its first painted frame.
-2. **The webm is finalised asynchronously.** Converting straight after
+1. **Pinning the theme has three dead ends.** `agent-browser set media dark`
+   silently kills the recording (0.1s of empty video), and so does a `reload`
+   inside the recording context — while localStorage set *before*
+   `record start` is not inherited by the fresh context it creates. What works
+   is flipping `documentElement.classList` on the loaded page; the driver
+   reports how long that setup took and `record.sh` trims exactly that much
+   off the head with ffmpeg's `trim` filter.
+2. **Set the viewport before `record start`.** The video's dimensions are
+   fixed when the recording context is created, and it inherits the viewport
+   in force at that moment — set it afterwards and you get a 1280×578 video of
+   a cropped board, with `innerWidth` still reporting the size you asked for.
+   `record.sh` ffprobes the webm and refuses to convert a wrong-sized one.
+3. **The webm is finalised asynchronously.** Converting straight after
    `record stop` yields a two-frame gif. `record.sh` waits for the file size
    to stop changing.
-3. **A leftover server on the port silently records the wrong board.** The
+4. **A leftover server on the port silently records the wrong board.** The
    driver's "an agent edits the file" step then writes to a file nobody is
    serving, and the unread badges never appear. `record.sh` refuses to start
    if the port is taken, and checks that `/api/config` reports *its* file.
-4. **`agent-browser batch` takes JSON on stdin**, not JSON strings as
+5. **`agent-browser batch` takes JSON on stdin**, not JSON strings as
    arguments. The driver uses it to run a whole cursor glide in one process —
    a spawn per mouse move is too slow to look like a hand moving.
-5. **The recorder draws no mouse pointer.** `cursor.js` renders one from real
+6. **The recorder draws no mouse pointer.** `cursor.js` renders one from real
    pointer events (capture phase, so a drag library that stops propagation
    cannot blind it). Without it the drag looks like cards moving by themselves.
-6. **Dates in the demo are relative** (`Wed`, `Aug 1`), so the due badges look
+7. **Dates in the demo are relative** (`Wed`, `Aug 1`), so the due badges look
    different depending on when you record. Adjust the `--due` values in
    `seed.sh` if they start reading as overdue.
