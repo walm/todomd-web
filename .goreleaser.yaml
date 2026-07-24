@@ -1,0 +1,41 @@
+version: 2
+project_name: todomd-web
+
+# The UI bundle is committed, but rebuild it here so a release can never ship
+# a stale one.
+before:
+  hooks:
+    - sh -c 'cd web && npm ci && npm run build'
+
+builds:
+  - main: .
+    binary: todomd-web
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  draft: false

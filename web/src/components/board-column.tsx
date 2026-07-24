@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { Board, Task } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { TaskCard } from '@/components/task-card'
-import { columnDroppableId } from '@/components/board-dnd'
+import { columnDroppableId } from '@/lib/dnd'
 import type { UnreadKind } from '@/hooks/use-unread'
 import { cn } from '@/lib/utils'
 

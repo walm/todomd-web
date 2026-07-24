@@ -10,6 +10,7 @@ import { Markdown } from '@/components/markdown'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
 import { dueUrgency, formatDue } from '@/lib/due'
+import { parseTags } from '@/lib/tags'
 import { cn } from '@/lib/utils'
 
 const AUTHOR_KEY = 'todomd-web:author'
@@ -225,13 +226,6 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
       </div>
     </form>
   )
-}
-
-export function parseTags(input: string): string[] {
-  return input
-    .split(/[\s,]+/)
-    .map((t) => t.replace(/^#/, '').trim().toLowerCase())
-    .filter(Boolean)
 }
 
 function Comments({ task, defaultAuthor }: { task: Task; defaultAuthor: string }) {

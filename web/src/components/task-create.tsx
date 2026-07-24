@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
-import { parseTags } from '@/components/task-detail'
+import { parseTags } from '@/lib/tags'
 
 export interface TaskCreateProps {
   open: boolean

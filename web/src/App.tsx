@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useBoard, useConfig, useMoveTask } from '@/api/hooks'
-import type { Board, Task } from '@/api/types'
+import type { Task } from '@/api/types'
 import { AppHeader } from '@/components/app-header'
 import { BoardColumn } from '@/components/board-column'
 import { BoardDnd } from '@/components/board-dnd'
 import { TaskCreate } from '@/components/task-create'
 import { TaskDetail } from '@/components/task-detail'
+import { filterBoards } from '@/lib/filter'
 import { useUnread } from '@/hooks/use-unread'
 import { Button } from '@/components/ui/button'
 
@@ -129,21 +130,4 @@ export default function App() {
       />
     </div>
   )
-}
-
-/** Filters on everything visible on a card, plus the id and description —
- *  what you would otherwise grep the file for. */
-export function filterBoards(boards: Board[], query: string): Board[] {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return boards
-  const terms = needle.split(/\s+/)
-  return boards.map((board) => ({
-    ...board,
-    tasks: board.tasks.filter((task) => {
-      const haystack = [task.title, task.description, task.id, ...task.tags]
-        .join(' ')
-        .toLowerCase()
-      return terms.every((term) => haystack.includes(term))
-    }),
-  }))
 }

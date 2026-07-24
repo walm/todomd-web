@@ -18,4 +18,4 @@ run = "go test ./..."
 
 [tasks.dev]
 description = "Run the Go server against the Vite dev server (HMR)"
-run = "go run . --dev"
+run = "go run . --dev http://127.0.0.1:5173"

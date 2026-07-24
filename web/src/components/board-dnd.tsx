@@ -15,9 +15,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Board, Task } from '@/api/types'
 import type { MoveArgs } from '@/api/hooks'
 import { TaskCard } from '@/components/task-card'
-
-/** Droppable id for a column's empty space, kept out of the task id space. */
-export const columnDroppableId = (board: string) => `column:${board}`
+import { COLUMN_PREFIX } from '@/lib/dnd'
 
 export interface BoardDndProps {
   boards: Board[]
@@ -71,10 +69,10 @@ export function BoardDnd({ boards, onMove, children }: BoardDndProps) {
     if (!from) return
 
     const overId = String(over.id)
-    if (overId.startsWith('column:')) {
+    if (overId.startsWith(COLUMN_PREFIX)) {
       // Dropped on a column's empty space: append, unless it is already the
       // last card there and nothing would change.
-      const to = overId.slice('column:'.length)
+      const to = overId.slice(COLUMN_PREFIX.length)
       if (from.board === to && from.last) return
       onMove({ id: from.task.id, to, pos: 0 })
       return

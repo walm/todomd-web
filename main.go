@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -128,7 +129,10 @@ func resolveVersion() string {
 	if version != "dev" {
 		return version
 	}
-	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+	// A local `go build` synthesises a v0.0.0-<date>-<commit> pseudo-version,
+	// which reads like a real release but isn't one — call those "dev".
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" &&
+		bi.Main.Version != "(devel)" && !strings.HasPrefix(bi.Main.Version, "v0.0.0-") {
 		return bi.Main.Version
 	}
 	return version

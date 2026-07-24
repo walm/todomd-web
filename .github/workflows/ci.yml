@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The server shells out to todomd; the integration tests skip without it.
+      - run: go install github.com/walm/todomd@latest
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./...
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '25'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # dist/ is committed so `go build` works without Node — keep it honest.
+      - name: check the committed bundle is up to date
+        run: |
+          if ! git diff --quiet -- dist; then
+            echo "web/dist is stale — run 'mise run build-web' and commit the result" >&2
+            git diff --stat -- dist >&2
+            exit 1
+          fi
