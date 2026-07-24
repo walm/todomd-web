@@ -1,0 +1,4 @@
+/todomd-web
+node_modules/
+*.local
+.DS_Store

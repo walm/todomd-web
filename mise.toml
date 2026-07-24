@@ -1,0 +1,21 @@
+[tools]
+go = "1.26.4"
+node = "25"
+
+[tasks.build-web]
+description = "Build the frontend bundle into web/dist"
+dir = "web"
+run = "npm ci && npm run build"
+
+[tasks.build]
+description = "Build the todomd-web binary into the repo root"
+depends = ["build-web"]
+run = "go build -o todomd-web ."
+
+[tasks.test]
+description = "Run the Go tests"
+run = "go test ./..."
+
+[tasks.dev]
+description = "Run the Go server against the Vite dev server (HMR)"
+run = "go run . --dev"
