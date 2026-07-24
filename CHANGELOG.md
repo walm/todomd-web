@@ -8,3 +8,5 @@
 - Syntax highlighting for fenced code in descriptions and comments, themed to
   match light and dark mode. The markdown renderer is loaded on demand, so
   the board's first paint is smaller than before it was added.
+- Opening a task focuses the comment box without scrolling the card to it,
+  and scrollbars follow the app's theme instead of the desktop's.

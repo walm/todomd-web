@@ -118,6 +118,51 @@
 }
 
 @layer base {
+  /* Pin the UA's own colours (scrollbars, date pickers, spinners) to the
+     app's theme, not the OS's — otherwise a light board on a dark desktop
+     gets dark scrollbars and a dark date picker punched through it. */
+  :root {
+    color-scheme: light;
+    --scrollbar-thumb: oklch(0.82 0 0);
+    --scrollbar-thumb-hover: oklch(0.68 0 0);
+  }
+
+  .dark {
+    color-scheme: dark;
+    --scrollbar-thumb: oklch(1 0 0 / 22%);
+    --scrollbar-thumb-hover: oklch(1 0 0 / 38%);
+  }
+
+  /* Thin, quiet scrollbars everywhere: boards scroll sideways, columns and
+     code blocks scroll on their own, and chunky default bars eat the layout.
+     The standard properties win in current browsers; the -webkit rules keep
+     older Safari in line. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
   * {
     @apply border-border outline-ring/50;
     }

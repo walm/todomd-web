@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <script>
+      // Apply the saved theme before first paint, so a dark board doesn't
+      // flash white on load. Key must match components/theme-toggle.tsx.
+      try {
+        var saved = localStorage.getItem('todomd-web:theme') || 'system'
+        var dark =
+          saved === 'dark' ||
+          (saved === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch (e) {}
+    </script>
     <title>todomd</title>
   </head>
   <body>

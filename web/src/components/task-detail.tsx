@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Markdown } from '@/components/markdown-lazy'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { dueUrgency, formatDue } from '@/lib/due'
 import { parseTags } from '@/lib/tags'
 import { cn } from '@/lib/utils'
@@ -235,6 +236,17 @@ function Comments({ task, defaultAuthor }: { task: Task; defaultAuthor: string }
   )
   const add = useAddComment()
   const box = useRef<HTMLTextAreaElement>(null)
+  const mobile = useIsMobile()
+
+  // Replying is the common reason to open a card, so the comment box takes
+  // focus — but with preventScroll, so the card still opens at the top rather
+  // than jumped to the bottom. Not on a phone: there it would throw the
+  // keyboard over the task you just opened.
+  useEffect(() => {
+    if (mobile) return
+    const frame = requestAnimationFrame(() => box.current?.focus({ preventScroll: true }))
+    return () => cancelAnimationFrame(frame)
+  }, [task.id, mobile])
 
   const submit = () => {
     const body = text.trim()

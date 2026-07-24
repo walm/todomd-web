@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,17 @@ export function ResponsiveDialog({
   className,
 }: ResponsiveDialogProps) {
   const mobile = useIsMobile()
+  const body = useRef<HTMLDivElement>(null)
+
+  // Whatever takes focus inside (the comment box does), the content starts at
+  // the top: a card that opens already scrolled to its footer is disorienting.
+  useEffect(() => {
+    if (!open) return
+    const frame = requestAnimationFrame(() => {
+      if (body.current) body.current.scrollTop = 0
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [open])
 
   if (mobile) {
     return (
@@ -48,7 +59,10 @@ export function ResponsiveDialog({
               <DrawerDescription className="sr-only">Task details</DrawerDescription>
             )}
           </DrawerHeader>
-          <div className="min-h-0 grow overflow-y-auto overscroll-contain px-4 pb-6">
+          <div
+            ref={body}
+            className="min-h-0 grow overflow-y-auto overscroll-contain px-4 pb-6"
+          >
             {children}
           </div>
         </DrawerContent>
@@ -69,7 +83,9 @@ export function ResponsiveDialog({
             <DialogDescription className="sr-only">Task details</DialogDescription>
           )}
         </DialogHeader>
-        <div className="-mx-1 min-h-0 grow overflow-y-auto px-1">{children}</div>
+        <div ref={body} className="-mx-1 min-h-0 grow overflow-y-auto px-1">
+          {children}
+        </div>
       </DialogContent>
     </Dialog>
   )
