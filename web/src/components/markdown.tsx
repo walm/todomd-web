@@ -1,11 +1,18 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
+import rehypeHighlight from 'rehype-highlight'
 import { cn } from '@/lib/utils'
 
+export interface MarkdownProps {
+  children: string
+  className?: string
+}
+
 /** Descriptions and comments are verbatim markdown from a file that anyone —
- *  including an agent — can write to, so it is rendered sanitized. */
-export function Markdown({ children, className }: { children: string; className?: string }) {
+ *  including an agent — can write to, so it is rendered sanitized. Import
+ *  this through markdown-lazy so the board doesn't carry the parser. */
+export function Markdown({ children, className }: MarkdownProps) {
   return (
     <div
       className={cn(
@@ -27,7 +34,13 @@ export function Markdown({ children, className }: { children: string; className?
         className,
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        // Sanitize first, then highlight: the `hljs-*` spans are derived from
+        // the already-cleaned text, so they can't smuggle anything through.
+        // Fences without a language are left alone rather than guessed at.
+        rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+      >
         {children}
       </ReactMarkdown>
     </div>

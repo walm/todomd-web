@@ -128,3 +128,136 @@
     @apply font-sans;
     }
 }
+/* Syntax highlighting for fenced code in descriptions and comments.
+   highlight.js emits the classes; the colours are ours, so they sit with the
+   rest of the theme and follow the light/dark switch instead of shipping two
+   third-party stylesheets. */
+@layer components {
+  .hljs-comment,
+  .hljs-quote {
+    color: oklch(0.55 0.03 250);
+    font-style: italic;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-doctag,
+  .hljs-name {
+    color: oklch(0.5 0.17 305);
+  }
+
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition,
+  .hljs-attribute,
+  .hljs-meta .hljs-string {
+    color: oklch(0.5 0.13 150);
+  }
+
+  .hljs-number,
+  .hljs-symbol,
+  .hljs-bullet,
+  .hljs-link,
+  .hljs-variable,
+  .hljs-template-variable {
+    color: oklch(0.55 0.15 55);
+  }
+
+  .hljs-title,
+  .hljs-section,
+  .hljs-title.class_,
+  .hljs-title.function_,
+  .hljs-selector-id,
+  .hljs-selector-class {
+    color: oklch(0.5 0.15 255);
+  }
+
+  .hljs-type,
+  .hljs-built_in,
+  .hljs-class .hljs-title,
+  .hljs-params {
+    color: oklch(0.5 0.11 210);
+  }
+
+  .hljs-attr,
+  .hljs-property,
+  .hljs-tag {
+    color: oklch(0.5 0.12 235);
+  }
+
+  .hljs-meta,
+  .hljs-subst {
+    color: var(--muted-foreground);
+  }
+
+  .hljs-deletion {
+    color: oklch(0.52 0.19 20);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: 600;
+  }
+
+  .dark {
+    .hljs-comment,
+    .hljs-quote {
+      color: oklch(0.66 0.03 250);
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag,
+    .hljs-literal,
+    .hljs-doctag,
+    .hljs-name {
+      color: oklch(0.78 0.13 305);
+    }
+
+    .hljs-string,
+    .hljs-regexp,
+    .hljs-addition,
+    .hljs-attribute,
+    .hljs-meta .hljs-string {
+      color: oklch(0.79 0.14 150);
+    }
+
+    .hljs-number,
+    .hljs-symbol,
+    .hljs-bullet,
+    .hljs-link,
+    .hljs-variable,
+    .hljs-template-variable {
+      color: oklch(0.82 0.12 65);
+    }
+
+    .hljs-title,
+    .hljs-section,
+    .hljs-title.class_,
+    .hljs-title.function_,
+    .hljs-selector-id,
+    .hljs-selector-class {
+      color: oklch(0.78 0.12 250);
+    }
+
+    .hljs-type,
+    .hljs-built_in,
+    .hljs-class .hljs-title,
+    .hljs-params {
+      color: oklch(0.82 0.09 205);
+    }
+
+    .hljs-attr,
+    .hljs-property,
+    .hljs-tag {
+      color: oklch(0.8 0.1 235);
+    }
+
+    .hljs-deletion {
+      color: oklch(0.72 0.16 20);
+    }
+  }
+}
