@@ -14,7 +14,16 @@ jobs:
         with:
           go-version-file: go.mod
       # The server shells out to todomd; the integration tests skip without it.
-      - run: go install github.com/walm/todomd@latest
+      # Retried because the checksum database occasionally answers 500, which
+      # has nothing to do with this repo's code.
+      - name: install todomd
+        run: |
+          for attempt in 1 2 3; do
+            go install github.com/walm/todomd@latest && exit 0
+            echo "todomd install failed (attempt $attempt), retrying…" >&2
+            sleep 10
+          done
+          exit 1
       - run: test -z "$(gofmt -l .)"
       - run: go vet ./...
       - run: go test ./...
