@@ -8,9 +8,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
 dist-ssr
 *.local
+
+# dist/ is deliberately NOT ignored: the Go binary embeds it, so a
+# checkout must build without Node. `mise run build-web` regenerates it.
 
 # Editor directories and files
 .vscode/*
