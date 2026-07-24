@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useBoard, useConfig } from '@/api/hooks'
+import { useBoard, useConfig, useMoveTask } from '@/api/hooks'
 import type { Board, Task } from '@/api/types'
 import { AppHeader } from '@/components/app-header'
 import { BoardColumn } from '@/components/board-column'
+import { BoardDnd } from '@/components/board-dnd'
 import { TaskCreate } from '@/components/task-create'
 import { TaskDetail } from '@/components/task-detail'
 import { useUnread } from '@/hooks/use-unread'
@@ -20,6 +21,7 @@ function idFromLocation(): string | null {
 export default function App() {
   const board = useBoard()
   const config = useConfig()
+  const move = useMoveTask()
   const qc = useQueryClient()
   const { unreadOf, markRead, markAllRead, count } = useUnread()
 
@@ -88,19 +90,24 @@ export default function App() {
           </div>
         )}
 
+        {/* Drop positions come from the unfiltered board: dropping a card
+            "onto" another means taking its place in the file, which has to
+            hold regardless of what the filter hides. */}
         {board.isSuccess && (
-          <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-3 pb-4 md:snap-none">
-            {filtered.map((column, i) => (
-              <BoardColumn
-                key={column.name}
-                board={column}
-                total={boards[i].tasks.length}
-                unreadOf={unreadOf}
-                onOpen={openTask}
-                onAdd={setCreatingIn}
-              />
-            ))}
-          </div>
+          <BoardDnd boards={boards} onMove={(args) => move.mutate(args)}>
+            <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-3 pb-4 md:snap-none">
+              {filtered.map((column, i) => (
+                <BoardColumn
+                  key={column.name}
+                  board={column}
+                  total={boards[i].tasks.length}
+                  unreadOf={unreadOf}
+                  onOpen={openTask}
+                  onAdd={setCreatingIn}
+                />
+              ))}
+            </div>
+          </BoardDnd>
         )}
       </main>
 
