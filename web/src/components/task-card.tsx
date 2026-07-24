@@ -22,7 +22,7 @@ export function TaskCard({ task, unread, dragging, className, ...props }: TaskCa
     <div
       data-task={task.id}
       className={cn(
-        'group cursor-pointer rounded-lg border bg-card p-2.5 text-left shadow-xs transition-colors',
+        'group cursor-pointer rounded-lg border bg-card p-2.5 text-left shadow-sm transition-colors',
         'hover:border-foreground/20 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
         unread === 'new' && 'border-emerald-500/60',
         unread === 'changed' && 'border-amber-500/60',

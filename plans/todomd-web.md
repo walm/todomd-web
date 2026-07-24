@@ -225,18 +225,23 @@ mutation, empty/error/loading states, and `n` / `/` / `r` shortcuts on desktop.
 
 ## 6. Milestones
 
-- [ ] **M1 — Skeleton.** Repo, module, mise, `internal/todomd` CLI client +
+**Status (2026-07-24): M1–M6 built.** Deferred and not done: a long-press
+"move to" menu on cards (the detail sheet's board picker covers touch), and
+clicking a tag chip to filter by it. `rev` is returned by the API but the UI
+relies on refetch-on-focus rather than acting on it.
+
+- [x] **M1 — Skeleton.** Repo, module, mise, `internal/todomd` CLI client +
       tests, `GET /api/board` + `/api/config`. Verifiable with curl.
-- [ ] **M2 — Read-only board.** Vite + Tailwind + shadcn scaffold, board /
+- [x] **M2 — Read-only board.** Vite + Tailwind + shadcn scaffold, board /
       column / card components, mobile column snapping, dark mode, dev proxy.
-- [ ] **M3 — Task detail & editing.** Detail dialog/drawer, markdown
+- [x] **M3 — Task detail & editing.** Detail dialog/drawer, markdown
       rendering, add/edit/delete task, add comment, board picker, and the
       matching write endpoints.
-- [ ] **M4 — Drag-and-drop.** dnd-kit wiring, optimistic move/reorder, touch
+- [x] **M4 — Drag-and-drop.** dnd-kit wiring, optimistic move/reorder, touch
       sensors, long-press "move to" menu.
-- [ ] **M5 — Polish.** Unread badges off `/api/changes`, filters, keyboard
+- [x] **M5 — Polish.** Unread badges off `/api/changes`, filters, keyboard
       shortcuts, toasts, empty/error states, refetch-on-focus.
-- [ ] **M6 — Ship.** Embed + build pipeline, install.sh, goreleaser, CI,
+- [x] **M6 — Ship.** Embed + build pipeline, install.sh, goreleaser, CI,
       README (todomd prerequisite, localhost-only, tailscale serve for
       remote), v0.1.0 tag.
 

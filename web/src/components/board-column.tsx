@@ -41,7 +41,8 @@ export function BoardColumn({ board, unreadOf, onOpen, onAdd, total }: BoardColu
       <div
         ref={setNodeRef}
         className={cn(
-          'flex min-h-24 grow flex-col gap-2 overflow-y-auto rounded-xl bg-muted/50 p-2 transition-colors',
+          'flex min-h-24 grow flex-col gap-2 overflow-y-auto rounded-xl border p-2 transition-colors',
+          'bg-muted/70 dark:bg-muted/30',
           isOver && 'bg-muted ring-1 ring-ring/30',
         )}
       >
