@@ -112,6 +112,35 @@ func (s *Server) handleAddProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, describe(entry))
 }
 
+type renameProjectRequest struct {
+	Name string `json:"name"`
+}
+
+// handleRenameProject changes a project's name. The id changes with it, so
+// the response is the project's new identity and the caller has to follow it.
+func (s *Server) handleRenameProject(w http.ResponseWriter, r *http.Request) {
+	var req renameProjectRequest
+	if err := decode(r, &req); err != nil {
+		s.writeError(w, err)
+		return
+	}
+	id := r.PathValue("project")
+	entry, err := s.registry.Rename(id, req.Name)
+	switch {
+	case err == nil:
+		// The cached client is keyed by id; drop the old key so it is not
+		// left pointing at a project that no longer answers to that name.
+		s.rekey(id, entry.ID)
+		writeJSON(w, http.StatusOK, describe(entry))
+	case errors.Is(err, project.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, errorResponse{"no such project: " + id})
+	case errors.Is(err, project.ErrNotConfigurable):
+		writeJSON(w, http.StatusConflict, errorResponse{err.Error()})
+	default:
+		s.writeError(w, invalid(err.Error()))
+	}
+}
+
 // handleRemoveProject drops a project from the list. The todo file it points
 // at is deliberately left alone.
 func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {

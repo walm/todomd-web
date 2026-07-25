@@ -102,6 +102,7 @@ func (s *Server) Handler() http.Handler {
 	route("GET", "/api/config", s.handleConfig)
 	route("GET", "/api/projects", s.handleListProjects)
 	route("POST", "/api/projects", s.handleAddProject)
+	route("PATCH", "/api/projects/{project}", s.handleRenameProject)
 	route("DELETE", "/api/projects/{project}", s.handleRemoveProject)
 
 	const p = "/api/projects/{project}"
@@ -164,6 +165,24 @@ func (s *Server) clientFor(r *http.Request, entry project.Entry) (*todomd.Client
 	}
 	s.clients[entry.ID] = client
 	return client, nil
+}
+
+// rekey moves a renamed project's cached client and unread bookkeeping to its
+// new id, so a rename does not lose track of what this server changed.
+func (s *Server) rekey(from, to string) {
+	if from == to {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if client, ok := s.clients[from]; ok {
+		s.clients[to] = client
+		delete(s.clients, from)
+	}
+	if own, ok := s.self[from]; ok {
+		s.self[to] = own
+		delete(s.self, from)
+	}
 }
 
 // forget drops a removed project's cached client and unread bookkeeping.

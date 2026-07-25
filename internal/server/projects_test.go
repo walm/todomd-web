@@ -264,3 +264,64 @@ func TestUnavailableProjectIsListedNotFatal(t *testing.T) {
 		t.Errorf("alpha board status = %d", code)
 	}
 }
+
+func TestRenameFollowsThroughToTheRoutes(t *testing.T) {
+	srv, root, _ := configServer(t)
+	if _, err := os.Stat(root); err != nil {
+		t.Fatal(err)
+	}
+
+	// Put a task in the project so we can prove it is the same file afterwards.
+	var created taskResponse
+	do(t, srv, "POST", "/api/projects/alpha/tasks", `{"title":"still here"}`, &created)
+
+	var renamed projectJSON
+	if code := do(t, srv, "PATCH", "/api/projects/alpha", `{"name":"First Project"}`, &renamed); code != http.StatusOK {
+		t.Fatalf("rename status = %d", code)
+	}
+	if renamed.ID != "first-project" || renamed.Name != "First Project" {
+		t.Fatalf("renamed = %+v", renamed)
+	}
+
+	// The board answers under the new id, with the same content…
+	var board boardResponse
+	if code := do(t, srv, "GET", "/api/projects/first-project/board", "", &board); code != http.StatusOK {
+		t.Fatalf("board status = %d", code)
+	}
+	if len(board.Boards[0].Tasks) != 1 || board.Boards[0].Tasks[0].Title != "still here" {
+		t.Errorf("board after rename: %+v", board.Boards[0].Tasks)
+	}
+	// …and not under the old one.
+	if code := do(t, srv, "GET", "/api/projects/alpha/board", "", &boardResponse{}); code != http.StatusNotFound {
+		t.Errorf("old id status = %d, want 404", code)
+	}
+}
+
+func TestRenameValidates(t *testing.T) {
+	srv, _, _ := configServer(t)
+	for _, tt := range []struct {
+		name, body string
+		want       int
+	}{
+		{"empty", `{"name":"  "}`, http.StatusBadRequest},
+		{"newlines", `{"name":"two\nlines"}`, http.StatusBadRequest},
+		{"unknown field", `{"title":"x"}`, http.StatusBadRequest},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if code := do(t, srv, "PATCH", "/api/projects/alpha", tt.body, nil); code != tt.want {
+				t.Errorf("status = %d, want %d", code, tt.want)
+			}
+		})
+	}
+	if code := do(t, srv, "PATCH", "/api/projects/nope", `{"name":"x"}`, nil); code != http.StatusNotFound {
+		t.Error("renaming an unknown project should 404")
+	}
+}
+
+func TestRenameIsRefusedForAFlagList(t *testing.T) {
+	srv, _, _ := newMultiServer(t)
+	var body errorResponse
+	if code := do(t, srv, "PATCH", "/api/projects/alpha", `{"name":"x"}`, &body); code != http.StatusConflict {
+		t.Errorf("status = %d, want 409 (%q)", code, body.Error)
+	}
+}
