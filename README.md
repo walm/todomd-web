@@ -44,11 +44,15 @@ cd your-project
 todomd-web                 # serves ./TODO.md on http://127.0.0.1:7337
 todomd-web --open          # …and opens a browser
 todomd-web -f ~/notes/TODO.md --port 8080 --author andreas
+
+# several projects at once, with a switcher in the header
+todomd-web ~/src/todomd/TODO.md ~/src/todomd-web/TODO.md ~/notes/house
 ```
 
 | Flag | Default | What it does |
 |---|---|---|
-| `-f`, `--file` | todomd's discovery | Path to the todo file (else `TODOMD_FILE`, else `TODO.md` searched upward) |
+| `-f`, `--file` | the config file, else todomd's discovery | Todo file to serve; repeat it, or list paths as arguments, for several projects |
+| `--config` | `$XDG_CONFIG_HOME/todomd-web/config.json` | Where the project list lives |
 | `--port` | `7337` | Port on localhost |
 | `--author` | `user` | Default author recorded on comments you write |
 | `--todomd` | `todomd` | Path to the todomd binary |
@@ -56,7 +60,7 @@ todomd-web -f ~/notes/TODO.md --port 8080 --author andreas
 | `--dev` | — | Proxy the UI to a Vite dev server, e.g. `http://127.0.0.1:5173` |
 
 On the board: click a card to open it, `n` for a new task, `/` to filter,
-`r` to reload. Drag cards between columns or up and down; on a phone, press
+`r` to reload, `p` to switch project (`1`–`9` jump straight to one). Drag cards between columns or up and down; on a phone, press
 and hold briefly before dragging, or just open the card and change its board
 there. Task detail is deep-linked at `/t/<id>`, so a card can be bookmarked
 or shared.
@@ -64,6 +68,40 @@ or shared.
 Cards an agent (or the TUI, or a `git pull`) touched since you last looked
 are badged — green for new, amber for changed — using `todomd changes --as
 web`. Opening a card clears its badge; your own edits never raise one.
+
+## 🗂️ Several projects
+
+Every todo file you register is a project, and the header switches between
+them. **Where the list comes from decides who owns it:**
+
+- **Paths on the command line** (`todomd-web a/TODO.md b/TODO.md`, or a
+  repeated `-f`) are the whole list, and the browser cannot change it.
+- **Otherwise the config file** — `~/.config/todomd-web/config.json` — which
+  the UI edits when you add or remove a project:
+
+  ```json
+  {
+    "projects": [
+      { "name": "todomd-web", "file": "/Users/you/src/todomd-web/TODO.md" },
+      { "name": "house",      "file": "/Users/you/notes/house/TODO.md" }
+    ]
+  }
+  ```
+
+  `name` is optional and defaults to the directory the file sits in. With no
+  config at all, todomd-web falls back to the `TODO.md` it finds from the
+  working directory, and writes the file only once you change the list.
+
+There is no directory scanning: paths are typed once, by you.
+
+**Adding** takes a path — a directory means the `TODO.md` inside it — and
+offers to run `todomd init` if there is nothing there yet. **Removing takes
+the project off the list and does nothing else: the file stays exactly where
+it is.**
+
+The switcher shows an unread count per project, so an agent working in a repo
+you are not currently looking at is visible without opening it. Each project
+keeps its own `todomd changes` cursor, so those counts never bleed together.
 
 ## 🔒 It listens on localhost only
 
@@ -100,16 +138,22 @@ work.
 
 The JSON is todomd's own pinned schema, passed straight through.
 
+Every board and task route names its project, so no request depends on the
+server remembering which one you are looking at.
+
 | Method | Path | Body |
 |---|---|---|
 | `GET` | `/api/config` | — |
-| `GET` | `/api/board` | — |
-| `GET` | `/api/changes` | — (advances the `web` cursor) |
-| `POST` | `/api/tasks` | `{board?, title, description?, tags?, due?}` |
-| `PATCH` | `/api/tasks/{id}` | any of `{title, description, tags, due}`; `due: null` and `tags: []` clear |
-| `POST` | `/api/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
-| `POST` | `/api/tasks/{id}/comments` | `{author, text}` |
-| `DELETE` | `/api/tasks/{id}` | — |
+| `GET` | `/api/projects` | — |
+| `POST` | `/api/projects` | `{file, name?, create?}` |
+| `DELETE` | `/api/projects/{project}` | — (list only; the file is untouched) |
+| `GET` | `/api/projects/{project}/board` | — |
+| `GET` | `/api/projects/{project}/changes` | — (advances that project's `web` cursor) |
+| `POST` | `/api/projects/{project}/tasks` | `{board?, title, description?, tags?, due?}` |
+| `PATCH` | `/api/projects/{project}/tasks/{id}` | any of `{title, description, tags, due}`; `due: null` and `tags: []` clear |
+| `POST` | `/api/projects/{project}/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
+| `POST` | `/api/projects/{project}/tasks/{id}/comments` | `{author, text}` |
+| `DELETE` | `/api/projects/{project}/tasks/{id}` | — |
 
 Errors come back as `{"error": "…"}` with todomd's own message: `404` no such
 task, `409` ambiguous id prefix, `400` anything it rejected.
