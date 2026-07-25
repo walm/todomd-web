@@ -46,7 +46,7 @@ export default function App() {
 
   const board = useBoard(currentId)
   const move = useMoveTask(currentId ?? '')
-  const { unreadOf, markRead, markAllRead, countFor, count } = useUnread({
+  const { unreadOf, markRead, markAllRead, renameProject, countFor, count } = useUnread({
     current: currentId,
     projects: list,
     includeOthers: list.length > 1,
@@ -67,6 +67,20 @@ export default function App() {
     setRoute({ project: id, task: null })
     setQuery('')
   }, [])
+
+  // A rename gives the project a new id, so everything pointing at the old one
+  // has to follow: the marks kept in this browser, and the URL if it is open.
+  const handleRenamed = useCallback(
+    (from: string, to: string) => {
+      renameProject(from, to)
+      if (currentId === from) {
+        localStorage.setItem(LAST_PROJECT, to)
+        writeLocation({ project: to, task: null }, { replace: true })
+        setRoute({ project: to, task: null })
+      }
+    },
+    [currentId, renameProject],
+  )
 
   const openTask = useCallback(
     (task: Task) => {
@@ -127,6 +141,7 @@ export default function App() {
             current={current}
             unreadFor={countFor}
             onSelect={selectProject}
+            onRenamed={handleRenamed}
             configurable={configurable}
             open={switching}
             onOpenChange={setSwitching}

@@ -37,6 +37,15 @@ function legacyProject(): string {
   return m ? decodeURIComponent(m[1]) : 'default'
 }
 
+/** Moves one project's marks to a new id, merging if the target has some. */
+export function moveMarks(state: UnreadState, from: string, to: string): UnreadState {
+  if (from === to || !state[from]) return state
+  const next = { ...state }
+  next[to] = { ...(next[to] ?? {}), ...next[from] }
+  delete next[from]
+  return next
+}
+
 function kindOf(event: ChangeEvent): UnreadKind | null {
   switch (event.type) {
     case 'task_added':
@@ -136,6 +145,12 @@ export function useUnread({ current, projects, includeOthers }: UnreadOptions) {
     setUnread((prev) => ({ ...prev, [project]: {} }))
   }, [])
 
+  /** Renaming a project changes its id; carry its marks across rather than
+   *  silently dropping them. */
+  const renameProject = useCallback((from: string, to: string) => {
+    setUnread((prev) => moveMarks(prev, from, to))
+  }, [])
+
   const unreadOf = useCallback(
     (id: string) => (current ? unread[current]?.[id] : undefined),
     [unread, current],
@@ -150,6 +165,7 @@ export function useUnread({ current, projects, includeOthers }: UnreadOptions) {
     unreadOf,
     markRead,
     markAllRead,
+    renameProject,
     countFor,
     count: current ? countFor(current) : 0,
   }

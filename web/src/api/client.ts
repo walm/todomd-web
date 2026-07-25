@@ -54,6 +54,14 @@ export const api = {
   addProject: (project: NewProject) =>
     request<Project>('/projects', { method: 'POST', body: body(project) }),
 
+  /** Renaming changes the project's id too, so the response is its new
+   *  identity — follow it rather than reusing the old one. */
+  renameProject: (id: string, name: string) =>
+    request<Project>(`/projects/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: body({ name }),
+    }),
+
   /** Takes the project off the list. The todo file stays where it is. */
   removeProject: (id: string) =>
     request<void>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE' }),

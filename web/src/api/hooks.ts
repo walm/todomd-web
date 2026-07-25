@@ -108,6 +108,16 @@ export function useAddProject() {
   })
 }
 
+export function useRenameProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.renameProject(id, name),
+    onError: (err: Error) =>
+      toast.error('Could not rename the project', { description: err.message }),
+    onSettled: () => qc.invalidateQueries({ queryKey: projectsKey }),
+  })
+}
+
 export function useRemoveProject() {
   const qc = useQueryClient()
   return useMutation({

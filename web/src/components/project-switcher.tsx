@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, ChevronsUpDown, FolderPlus, Loader2, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  ChevronsUpDown,
+  FolderPlus,
+  Loader2,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import type { Project } from '@/api/types'
-import { useAddProject, useRemoveProject } from '@/api/hooks'
+import { useAddProject, useRemoveProject, useRenameProject } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
@@ -13,7 +21,10 @@ export interface ProjectSwitcherProps {
   /** Unread count for a project, for the dot next to its name. */
   unreadFor: (id: string) => number
   onSelect: (id: string) => void
-  /** False when the list came from the command line: no adding or removing. */
+  /** Renaming changes the project's id, so the app has to follow it: move the
+   *  unread marks across and, if it is the one on screen, the URL too. */
+  onRenamed: (from: string, to: string) => void
+  /** False when the list came from the command line: no editing the list. */
   configurable: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -24,15 +35,20 @@ export function ProjectSwitcher({
   current,
   unreadFor,
   onSelect,
+  onRenamed,
   configurable,
   open,
   onOpenChange,
 }: ProjectSwitcherProps) {
   const [adding, setAdding] = useState(false)
+  const [renaming, setRenaming] = useState<string | null>(null)
   const remove = useRemoveProject()
 
   useEffect(() => {
-    if (!open) setAdding(false)
+    if (!open) {
+      setAdding(false)
+      setRenaming(null)
+    }
   }, [open])
 
   // One project and no way to add another: there is nothing to switch to, so
@@ -64,6 +80,17 @@ export function ProjectSwitcher({
           {projects.map((project) => {
             const unread = unreadFor(project.id)
             const active = project.id === current?.id
+            if (renaming === project.id) {
+              return (
+                <li key={project.id}>
+                  <RenameProject
+                    project={project}
+                    onDone={() => setRenaming(null)}
+                    onRenamed={onRenamed}
+                  />
+                </li>
+              )
+            }
             return (
               <li key={project.id} className="group/row flex items-center gap-1">
                 <button
@@ -108,6 +135,18 @@ export function ProjectSwitcher({
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    aria-label={`Rename ${project.name}`}
+                    title="Rename this project"
+                    className="opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100"
+                    onClick={() => setRenaming(project.id)}
+                  >
+                    <Pencil />
+                  </Button>
+                )}
+                {configurable && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label={`Remove ${project.name} from the list`}
                     title="Remove from this list — the file stays where it is"
                     className="opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100"
@@ -134,7 +173,8 @@ export function ProjectSwitcher({
             ) : (
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">
-                  Removing a project takes it off this list. The file stays where it is.
+                  Names default to the folder. Rename with the pencil; removing a
+                  project takes it off this list and leaves the file where it is.
                 </p>
                 <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
                   <FolderPlus />
@@ -146,6 +186,71 @@ export function ProjectSwitcher({
         )}
       </ResponsiveDialog>
     </>
+  )
+}
+
+/** Renaming in place. The id follows the name, so the caller is told about
+ *  both and can keep the URL and the unread marks pointing at the right
+ *  project. */
+function RenameProject({
+  project,
+  onDone,
+  onRenamed,
+}: {
+  project: Project
+  onDone: () => void
+  onRenamed: (from: string, to: string) => void
+}) {
+  const [name, setName] = useState(project.name)
+  const rename = useRenameProject()
+
+  const submit = () => {
+    const next = name.trim()
+    if (!next) return
+    if (next === project.name) {
+      onDone()
+      return
+    }
+    rename.mutate(
+      { id: project.id, name: next },
+      {
+        onSuccess: (updated) => {
+          onRenamed(project.id, updated.id)
+          onDone()
+        },
+      },
+    )
+  }
+
+  return (
+    <form
+      className="flex items-center gap-1 py-1"
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+    >
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        aria-label={`New name for ${project.name}`}
+        className="h-8"
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            onDone()
+          }
+        }}
+      />
+      <Button type="submit" size="sm" disabled={!name.trim() || rename.isPending}>
+        {rename.isPending && <Loader2 className="animate-spin" />}
+        Save
+      </Button>
+      <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+        Cancel
+      </Button>
+    </form>
   )
 }
 
