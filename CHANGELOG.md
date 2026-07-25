@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- `todomd-web upgrade` installs the latest release over the running binary,
+  with the same sha256 verification `install.sh` does — plus a check that the
+  downloaded binary runs before it is swapped in. `--check` reports without
+  installing, `--force` overrides the up-to-date and source-build guards,
+  `--json` reports the outcome. A failed upgrade leaves the existing binary in
+  place.
+- An upgrade bar in the board, since a web UI is the kind of thing that stays
+  open for weeks: it offers the changelog and an Upgrade button, which
+  installs the release, restarts the server into it, and reloads the page.
+  Dismissing it hides that version only. The check is cached and refreshed at
+  most every six hours in the background; `TODOMD_WEB_NO_UPDATE_CHECK=1`
+  disables it, and development builds neither nag nor upgrade.
+
 ## v0.2.1
 
 - Flags typed after file arguments (`todomd-web a/TODO.md --port 8080`) were

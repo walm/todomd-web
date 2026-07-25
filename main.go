@@ -46,6 +46,13 @@ func main() {
 }
 
 func run() error {
+	// One subcommand, so no framework: anything else is flags and file paths.
+	if len(os.Args) > 1 && os.Args[1] == "upgrade" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return runUpgrade(ctx, os.Args[2:])
+	}
+
 	var files fileList
 	var (
 		port        = flag.Int("port", 7337, "port to listen on")
@@ -58,6 +65,11 @@ func run() error {
 	)
 	flag.Var(&files, "file", "todo markdown file to serve; repeat for several projects (default: the config file, else TODO.md searched upward)")
 	flag.Var(&files, "f", "shorthand for --file")
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, "Usage: todomd-web [flags] [TODO.md...]\n\n"+
+			"Commands:\n  upgrade\tinstall the latest release over this binary\n\nFlags:\n")
+		flag.PrintDefaults()
+	}
 	if err := flag.CommandLine.Parse(flagsFirst(os.Args[1:])); err != nil {
 		return err
 	}
@@ -86,6 +98,7 @@ func run() error {
 		Author:   *author,
 		Version:  resolveVersion(),
 		Assets:   assets,
+		Restart:  restart,
 	}).Handler()
 
 	addr := fmt.Sprintf("%s:%d", host, *port)
@@ -159,6 +172,18 @@ func flagsFirst(args []string) []string {
 	}
 	// "--" so a file path that happens to start with a dash stays a file.
 	return append(append(flags, "--"), positional...)
+}
+
+// restart replaces this process with a fresh one, same arguments and
+// environment. Used after an upgrade applied from the browser: exec keeps the
+// pid and the terminal it was started from, and the listening socket is closed
+// by the exec so the new process can take the port straight back.
+func restart() error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	return syscall.Exec(exe, os.Args, os.Environ())
 }
 
 // fileList collects a repeatable --file flag.

@@ -8,6 +8,8 @@ import type {
   ProjectsResponse,
   TaskPatch,
   TaskResponse,
+  UpdateStatus,
+  UpgradeResult,
 } from './types'
 
 export class ApiError extends Error {
@@ -48,6 +50,12 @@ const scope = (project: string) => `/projects/${encodeURIComponent(project)}`
 
 export const api = {
   config: () => request<Config>('/config'),
+
+  update: () => request<UpdateStatus>('/update'),
+
+  /** Installs the latest release. The server restarts into it, so the reply
+   *  usually arrives just before the connection goes away. */
+  upgrade: () => request<UpgradeResult>('/update', { method: 'POST' }),
 
   projects: () => request<ProjectsResponse>('/projects'),
 
