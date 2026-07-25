@@ -6,19 +6,21 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/todomd"
 )
 
 type taskResponse struct {
-	Task *todomd.Task `json:"task"`
-	Rev  string       `json:"rev"`
+	Project string       `json:"project"`
+	Task    *todomd.Task `json:"task"`
+	Rev     string       `json:"rev"`
 }
 
 // respondTask writes the affected task and notes that this server, not an
 // agent, is responsible for the change.
-func (s *Server) respondTask(w http.ResponseWriter, status int, t *todomd.Task) {
-	s.markSelf(t.ID)
-	writeJSON(w, status, taskResponse{Task: t, Rev: s.client.Rev()})
+func (s *Server) respondTask(w http.ResponseWriter, status int, entry project.Entry, client *todomd.Client, t *todomd.Task) {
+	s.markSelf(entry.ID, t.ID)
+	writeJSON(w, status, taskResponse{Project: entry.ID, Task: t, Rev: client.Rev()})
 }
 
 // decode reads a JSON object body, rejecting unknown fields so a typo in the
@@ -40,7 +42,7 @@ type createRequest struct {
 	Due         *string  `json:"due"`
 }
 
-func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
 	var req createRequest
 	if err := decode(r, &req); err != nil {
 		s.writeError(w, err)
@@ -59,18 +61,18 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	if req.Due != nil {
 		t.Due = *req.Due
 	}
-	created, err := s.client.Add(r.Context(), t)
+	created, err := client.Add(r.Context(), t)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	s.respondTask(w, http.StatusCreated, created)
+	s.respondTask(w, http.StatusCreated, entry, client, created)
 }
 
 // handleUpdateTask applies a partial update. Fields absent from the body are
 // left alone; `"due": null` and `"tags": []` clear them. That distinction is
 // why the body is decoded key by key rather than into a struct of pointers.
-func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
 	var raw map[string]json.RawMessage
 	if err := decode(r, &raw); err != nil {
 		s.writeError(w, err)
@@ -120,12 +122,12 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, invalid("nothing to update"))
 		return
 	}
-	updated, err := s.client.Update(r.Context(), r.PathValue("id"), u)
+	updated, err := client.Update(r.Context(), r.PathValue("id"), u)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	s.respondTask(w, http.StatusOK, updated)
+	s.respondTask(w, http.StatusOK, entry, client, updated)
 }
 
 type moveRequest struct {
@@ -136,7 +138,7 @@ type moveRequest struct {
 // handleMoveTask moves a task between boards and/or to a position. pos is
 // 1-based in the target board *after* the task is removed from where it was —
 // the same index a drag-and-drop drop target reports.
-func (s *Server) handleMoveTask(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleMoveTask(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
 	var req moveRequest
 	if err := decode(r, &req); err != nil {
 		s.writeError(w, err)
@@ -146,12 +148,12 @@ func (s *Server) handleMoveTask(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, invalid("move needs a target board or a position >= 1"))
 		return
 	}
-	moved, err := s.client.Move(r.Context(), r.PathValue("id"), req.To, req.Pos)
+	moved, err := client.Move(r.Context(), r.PathValue("id"), req.To, req.Pos)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	s.respondTask(w, http.StatusOK, moved)
+	s.respondTask(w, http.StatusOK, entry, client, moved)
 }
 
 type commentRequest struct {
@@ -159,7 +161,7 @@ type commentRequest struct {
 	Text   string `json:"text"`
 }
 
-func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
 	var req commentRequest
 	if err := decode(r, &req); err != nil {
 		s.writeError(w, err)
@@ -173,20 +175,20 @@ func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request) {
 	if author == "" {
 		author = s.author
 	}
-	commented, err := s.client.Comment(r.Context(), r.PathValue("id"), author, req.Text)
+	commented, err := client.Comment(r.Context(), r.PathValue("id"), author, req.Text)
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	s.respondTask(w, http.StatusCreated, commented)
+	s.respondTask(w, http.StatusCreated, entry, client, commented)
 }
 
-func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
-	deleted, err := s.client.Delete(r.Context(), r.PathValue("id"))
+func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
+	deleted, err := client.Delete(r.Context(), r.PathValue("id"))
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	s.markSelf(deleted.ID)
+	s.markSelf(entry.ID, deleted.ID)
 	w.WriteHeader(http.StatusNoContent)
 }

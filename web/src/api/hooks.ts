@@ -1,15 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from './client'
-import type { BoardResponse, NewTask, TaskPatch } from './types'
+import type { BoardResponse, NewProject, NewTask, TaskPatch } from './types'
 
-export const boardKey = ['board'] as const
+/** Query keys are scoped by project, so switching boards is a cache hit and
+ *  each project refetches on its own. */
+export const boardKey = (project: string) => ['board', project] as const
+export const projectsKey = ['projects'] as const
 export const configKey = ['config'] as const
 
 /** The board is refetched whenever the window regains focus, which is how a
  *  change made by an agent (or in the TUI) shows up without any watching. */
-export function useBoard() {
-  return useQuery({ queryKey: boardKey, queryFn: api.board })
+export function useBoard(project: string | undefined) {
+  return useQuery({
+    queryKey: boardKey(project ?? ''),
+    queryFn: () => api.board(project!),
+    enabled: !!project,
+  })
+}
+
+export function useProjects() {
+  return useQuery({ queryKey: projectsKey, queryFn: api.projects })
 }
 
 export function useConfig() {
@@ -17,42 +28,44 @@ export function useConfig() {
 }
 
 function useBoardMutation<TArgs, TResult>(
+  project: string,
   fn: (args: TArgs) => Promise<TResult>,
   options: { onError?: string } = {},
 ) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: fn,
-    onError: (err: Error) => toast.error(options.onError ?? 'Something went wrong', {
-      description: err.message,
-    }),
-    onSettled: () => qc.invalidateQueries({ queryKey: boardKey }),
+    onError: (err: Error) =>
+      toast.error(options.onError ?? 'Something went wrong', { description: err.message }),
+    onSettled: () => qc.invalidateQueries({ queryKey: boardKey(project) }),
   })
 }
 
-export function useCreateTask() {
-  return useBoardMutation((task: NewTask) => api.createTask(task), {
+export function useCreateTask(project: string) {
+  return useBoardMutation(project, (task: NewTask) => api.createTask(project, task), {
     onError: 'Could not add the task',
   })
 }
 
-export function useUpdateTask() {
+export function useUpdateTask(project: string) {
   return useBoardMutation(
-    ({ id, patch }: { id: string; patch: TaskPatch }) => api.updateTask(id, patch),
+    project,
+    ({ id, patch }: { id: string; patch: TaskPatch }) => api.updateTask(project, id, patch),
     { onError: 'Could not save the task' },
   )
 }
 
-export function useAddComment() {
+export function useAddComment(project: string) {
   return useBoardMutation(
+    project,
     ({ id, author, text }: { id: string; author: string; text: string }) =>
-      api.addComment(id, author, text),
+      api.addComment(project, id, author, text),
     { onError: 'Could not add the comment' },
   )
 }
 
-export function useDeleteTask() {
-  return useBoardMutation((id: string) => api.deleteTask(id), {
+export function useDeleteTask(project: string) {
+  return useBoardMutation(project, (id: string) => api.deleteTask(project, id), {
     onError: 'Could not delete the task',
   })
 }
@@ -66,21 +79,53 @@ export interface MoveArgs {
 
 /** Moving is optimistic: the card lands where it was dropped immediately and
  *  only snaps back if todomd rejects the move. */
-export function useMoveTask() {
+export function useMoveTask(project: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, to, pos }: MoveArgs) => api.moveTask(id, to, pos),
+    mutationFn: ({ id, to, pos }: MoveArgs) => api.moveTask(project, id, to, pos),
     onMutate: async (args: MoveArgs) => {
-      await qc.cancelQueries({ queryKey: boardKey })
-      const previous = qc.getQueryData<BoardResponse>(boardKey)
-      if (previous) qc.setQueryData(boardKey, applyMove(previous, args))
+      await qc.cancelQueries({ queryKey: boardKey(project) })
+      const previous = qc.getQueryData<BoardResponse>(boardKey(project))
+      if (previous) qc.setQueryData(boardKey(project), applyMove(previous, args))
       return { previous }
     },
     onError: (err: Error, _args, context) => {
-      if (context?.previous) qc.setQueryData(boardKey, context.previous)
+      if (context?.previous) qc.setQueryData(boardKey(project), context.previous)
       toast.error('Could not move the task', { description: err.message })
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: boardKey }),
+    onSettled: () => qc.invalidateQueries({ queryKey: boardKey(project) }),
+  })
+}
+
+export function useAddProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (project: NewProject) => api.addProject(project),
+    onError: (err: Error) =>
+      toast.error('Could not add the project', { description: err.message }),
+    onSuccess: (project) => toast.success(`Added ${project.name}`),
+    onSettled: () => qc.invalidateQueries({ queryKey: projectsKey }),
+  })
+}
+
+export function useRenameProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.renameProject(id, name),
+    onError: (err: Error) =>
+      toast.error('Could not rename the project', { description: err.message }),
+    onSettled: () => qc.invalidateQueries({ queryKey: projectsKey }),
+  })
+}
+
+export function useRemoveProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.removeProject(id),
+    onError: (err: Error) =>
+      toast.error('Could not remove the project', { description: err.message }),
+    onSuccess: () => toast.success('Removed from the list', { description: 'The file is untouched.' }),
+    onSettled: () => qc.invalidateQueries({ queryKey: projectsKey }),
   })
 }
 

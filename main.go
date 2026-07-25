@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/server"
 	"github.com/walm/todomd-web/internal/todomd"
 	"github.com/walm/todomd-web/web"
@@ -45,29 +46,30 @@ func main() {
 }
 
 func run() error {
+	var files fileList
 	var (
-		file        = flag.String("file", "", "path to the todo markdown file (default: todomd's own discovery — TODOMD_FILE, then TODO.md searched upward)")
-		fileShort   = flag.String("f", "", "shorthand for --file")
 		port        = flag.Int("port", 7337, "port to listen on")
 		author      = flag.String("author", "user", "default author for comments written in the UI")
 		bin         = flag.String("todomd", "todomd", "path to the todomd binary")
 		open        = flag.Bool("open", false, "open the board in your browser")
 		dev         = flag.String("dev", "", "proxy the UI to a running Vite dev server, e.g. http://127.0.0.1:5173")
+		configPath  = flag.String("config", "", "project list to use (default: $XDG_CONFIG_HOME/todomd-web/config.json)")
 		showVersion = flag.Bool("version", false, "print the version and exit")
 	)
+	flag.Var(&files, "file", "todo markdown file to serve; repeat for several projects (default: the config file, else TODO.md searched upward)")
+	flag.Var(&files, "f", "shorthand for --file")
 	flag.Parse()
+	// Files may also be given positionally: todomd-web a/TODO.md b/TODO.md
+	files = append(files, flag.Args()...)
 	if *showVersion {
 		fmt.Println("todomd-web version " + resolveVersion())
 		return nil
-	}
-	if *fileShort != "" && *file == "" {
-		*file = *fileShort
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	client, err := todomd.New(ctx, *bin, *file)
+	registry, err := projects(ctx, *bin, files, *configPath)
 	if err != nil {
 		return err
 	}
@@ -77,10 +79,11 @@ func run() error {
 		return err
 	}
 	handler := server.New(server.Options{
-		Client:  client,
-		Author:  *author,
-		Version: resolveVersion(),
-		Assets:  assets,
+		Registry: registry,
+		Bin:      *bin,
+		Author:   *author,
+		Version:  resolveVersion(),
+		Assets:   assets,
 	}).Handler()
 
 	addr := fmt.Sprintf("%s:%d", host, *port)
@@ -91,7 +94,14 @@ func run() error {
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 
 	origin := "http://" + addr
-	fmt.Printf("todomd-web %s serving %s\n  %s\n", resolveVersion(), client.File, origin)
+	fmt.Printf("todomd-web %s\n", resolveVersion())
+	for _, entry := range registry.List() {
+		fmt.Printf("  %-16s %s\n", entry.Name, entry.File)
+	}
+	if len(registry.List()) == 0 {
+		fmt.Printf("  no projects yet — add one in the browser\n")
+	}
+	fmt.Printf("  %s\n", origin)
 	if *open {
 		openBrowser(origin)
 	}
@@ -110,6 +120,59 @@ func run() error {
 		defer cancel()
 		return srv.Shutdown(shutdown)
 	}
+}
+
+// fileList collects a repeatable --file flag.
+type fileList []string
+
+func (f *fileList) String() string { return strings.Join(*f, ", ") }
+
+func (f *fileList) Set(value string) error {
+	*f = append(*f, value)
+	return nil
+}
+
+// projects builds the registry: files named on the command line are the whole
+// list and cannot be edited from the browser; otherwise the config file is,
+// and a TODO.md discovered in the working directory seeds it without being
+// written to disk until the list actually changes.
+func projects(ctx context.Context, bin string, files []string, configPath string) (*project.Registry, error) {
+	if len(files) > 0 {
+		for _, f := range files {
+			// Fail loudly at startup rather than with a broken board later.
+			if _, err := todomd.New(ctx, bin, f); err != nil {
+				return nil, err
+			}
+		}
+		return project.FromFiles(files)
+	}
+
+	if configPath == "" {
+		var err error
+		if configPath, err = project.ConfigPath(); err != nil {
+			return nil, err
+		}
+	}
+	registry, err := project.Load(configPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(registry.List()) > 0 {
+		return registry, nil
+	}
+
+	// Nothing configured: fall back to what a single-file todomd-web did —
+	// todomd's own discovery from the working directory. A missing file is no
+	// longer fatal, because the UI can add one.
+	client, err := todomd.New(ctx, bin, "")
+	if err != nil {
+		if errors.Is(err, todomd.ErrNotInstalled) {
+			return nil, err
+		}
+		fmt.Fprintln(os.Stderr, "todomd-web: "+err.Error())
+		return registry, nil
+	}
+	return registry, registry.Seed(client.File)
 }
 
 // ui serves the embedded bundle, or proxies to a Vite dev server when --dev

@@ -6,9 +6,13 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 
 export interface AppHeaderProps {
+  /** The project switcher, rendered where the file name used to be. */
+  project: React.ReactNode
   file?: string
   query: string
   onQueryChange: (value: string) => void
+  /** False when there is no project to add tasks to yet. */
+  canEdit: boolean
   onAdd: () => void
   onRefresh: () => void
   refreshing: boolean
@@ -17,9 +21,11 @@ export interface AppHeaderProps {
 }
 
 export function AppHeader({
+  project,
   file,
   query,
   onQueryChange,
+  canEdit,
   onAdd,
   onRefresh,
   refreshing,
@@ -50,18 +56,15 @@ export function AppHeader({
     return () => window.removeEventListener('keydown', onKey)
   }, [onAdd, onRefresh])
 
-  const name = file?.split('/').pop() ?? 'TODO.md'
   const dir = file?.split('/').slice(0, -1).join('/')
 
   return (
     <header className="sticky top-0 z-20 border-b bg-background/85 backdrop-blur-sm">
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold tracking-tight" title={file}>
-            {name}
-          </h1>
+          {project}
           {dir && (
-            <p className="hidden truncate text-xs text-muted-foreground sm:block" title={file}>
+            <p className="ml-1.5 hidden truncate text-xs text-muted-foreground sm:block" title={file}>
               {dir}
             </p>
           )}
@@ -111,7 +114,7 @@ export function AppHeader({
           <RefreshCw className={cn(refreshing && 'animate-spin')} />
         </Button>
         <ThemeToggle />
-        <Button size="sm" onClick={onAdd}>
+        <Button size="sm" onClick={onAdd} disabled={!canEdit}>
           <Plus />
           <span className="hidden sm:inline">Add task</span>
         </Button>

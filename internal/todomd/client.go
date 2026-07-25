@@ -248,3 +248,26 @@ func (c *Client) Changes(ctx context.Context, cursor string, peek bool, ignoreAu
 	}
 	return runJSON[Changes](ctx, c, args...)
 }
+
+// Init creates a new todo file with todomd's default boards. It is a package
+// function rather than a method because it runs before there is a file to
+// build a client around.
+func Init(ctx context.Context, bin, file string) error {
+	if bin == "" {
+		bin = DefaultBin
+	}
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return ErrNotInstalled
+	}
+	abs, err := filepath.Abs(file)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+		return err
+	}
+	c := &Client{Bin: path, File: abs}
+	_, err = c.run(ctx, "init")
+	return err
+}

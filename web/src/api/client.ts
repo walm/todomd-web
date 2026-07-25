@@ -2,7 +2,10 @@ import type {
   BoardResponse,
   ChangesResponse,
   Config,
+  NewProject,
   NewTask,
+  Project,
+  ProjectsResponse,
   TaskPatch,
   TaskResponse,
 } from './types'
@@ -39,30 +42,57 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 const body = (value: unknown) => JSON.stringify(value)
 
+/** Every board and task call names its project, so nothing here depends on
+ *  the server remembering which one you are looking at. */
+const scope = (project: string) => `/projects/${encodeURIComponent(project)}`
+
 export const api = {
   config: () => request<Config>('/config'),
-  board: () => request<BoardResponse>('/board'),
-  changes: () => request<ChangesResponse>('/changes'),
 
-  createTask: (task: NewTask) =>
-    request<TaskResponse>('/tasks', { method: 'POST', body: body(task) }),
+  projects: () => request<ProjectsResponse>('/projects'),
 
-  updateTask: (id: string, patch: TaskPatch) =>
-    request<TaskResponse>(`/tasks/${id}`, { method: 'PATCH', body: body(patch) }),
+  addProject: (project: NewProject) =>
+    request<Project>('/projects', { method: 'POST', body: body(project) }),
+
+  /** Renaming changes the project's id too, so the response is its new
+   *  identity — follow it rather than reusing the old one. */
+  renameProject: (id: string, name: string) =>
+    request<Project>(`/projects/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: body({ name }),
+    }),
+
+  /** Takes the project off the list. The todo file stays where it is. */
+  removeProject: (id: string) =>
+    request<void>(`/projects/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  board: (project: string) => request<BoardResponse>(`${scope(project)}/board`),
+
+  changes: (project: string) => request<ChangesResponse>(`${scope(project)}/changes`),
+
+  createTask: (project: string, task: NewTask) =>
+    request<TaskResponse>(`${scope(project)}/tasks`, { method: 'POST', body: body(task) }),
+
+  updateTask: (project: string, id: string, patch: TaskPatch) =>
+    request<TaskResponse>(`${scope(project)}/tasks/${id}`, {
+      method: 'PATCH',
+      body: body(patch),
+    }),
 
   /** pos is 1-based in the target board after the task is removed from where
    *  it was — exactly the index a drop target reports. 0 appends. */
-  moveTask: (id: string, to: string, pos: number) =>
-    request<TaskResponse>(`/tasks/${id}/move`, {
+  moveTask: (project: string, id: string, to: string, pos: number) =>
+    request<TaskResponse>(`${scope(project)}/tasks/${id}/move`, {
       method: 'POST',
       body: body({ to, pos }),
     }),
 
-  addComment: (id: string, author: string, text: string) =>
-    request<TaskResponse>(`/tasks/${id}/comments`, {
+  addComment: (project: string, id: string, author: string, text: string) =>
+    request<TaskResponse>(`${scope(project)}/tasks/${id}/comments`, {
       method: 'POST',
       body: body({ author, text }),
     }),
 
-  deleteTask: (id: string) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+  deleteTask: (project: string, id: string) =>
+    request<void>(`${scope(project)}/tasks/${id}`, { method: 'DELETE' }),
 }
