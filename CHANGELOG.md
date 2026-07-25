@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0
 
 - **Several projects at once.** Register todo files on the command line
   (`todomd-web a/TODO.md b/TODO.md`) or in
