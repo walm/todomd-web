@@ -95,9 +95,12 @@ them. **Where the list comes from decides who owns it:**
 There is no directory scanning: paths are typed once, by you.
 
 **Adding** takes a path — a directory means the `TODO.md` inside it — and
-offers to run `todomd init` if there is nothing there yet. **Removing takes
-the project off the list and does nothing else: the file stays exactly where
-it is.**
+offers to run `todomd init` if there is nothing there yet. **Renaming** (the
+pencil) is worth knowing about: names default to the folder, so two repos
+with a `docs/` directory both show up as "docs" until you say otherwise. The
+URL follows the new name, and so does the board you are looking at.
+**Removing takes the project off the list and does nothing else: the file
+stays exactly where it is.**
 
 The switcher shows an unread count per project, so an agent working in a repo
 you are not currently looking at is visible without opening it. Each project
@@ -146,6 +149,7 @@ server remembering which one you are looking at.
 | `GET` | `/api/config` | — |
 | `GET` | `/api/projects` | — |
 | `POST` | `/api/projects` | `{file, name?, create?}` |
+| `PATCH` | `/api/projects/{project}` | `{name}` — the id changes with it, so follow the response |
 | `DELETE` | `/api/projects/{project}` | — (list only; the file is untouched) |
 | `GET` | `/api/projects/{project}/board` | — |
 | `GET` | `/api/projects/{project}/changes` | — (advances that project's `web` cursor) |

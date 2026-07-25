@@ -8,8 +8,10 @@
   (`p`, or `1`–`9`). The switcher shows an unread count per project, so an
   agent working in a repo you are not looking at is visible without opening
   it. Projects can be added from the UI — including creating the file with
-  `todomd init` — and removing one takes it off the list without touching the
-  file. There is no directory scanning.
+  `todomd init` — renamed, since names default to the folder and two repos
+  with a `docs/` directory would otherwise be indistinguishable — and removed,
+  which takes a project off the list without touching the file. There is no
+  directory scanning.
 - **Breaking (API):** board and task endpoints are now scoped by project, e.g.
   `/api/projects/{project}/board`. Deep links moved with them:
   `/p/{project}/t/{task}`; old `/t/{task}` links still open against the
