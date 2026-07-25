@@ -36,6 +36,10 @@ type Options struct {
 	Assets   http.Handler // serves the SPA; may be nil in tests
 	Cursor   string       // change cursor name (default DefaultCursor)
 	Logger   *slog.Logger
+	// Restart replaces this process with a freshly started one, so an upgrade
+	// applied from the browser takes effect without a terminal. nil means the
+	// UI is told to restart it by hand.
+	Restart func() error
 }
 
 // Server implements the HTTP API.
@@ -47,6 +51,7 @@ type Server struct {
 	assets   http.Handler
 	cursor   string
 	log      *slog.Logger
+	restart  func() error
 
 	mu sync.Mutex
 	// clients are made on first use and kept: one per project, each pinned to
@@ -68,6 +73,7 @@ func New(opts Options) *Server {
 		assets:   opts.Assets,
 		cursor:   opts.Cursor,
 		log:      opts.Logger,
+		restart:  opts.Restart,
 		clients:  map[string]*todomd.Client{},
 		self:     map[string]map[string]bool{},
 	}
@@ -100,6 +106,8 @@ func (s *Server) Handler() http.Handler {
 		}
 	}
 	route("GET", "/api/config", s.handleConfig)
+	route("GET", "/api/update", s.handleUpdate)
+	route("POST", "/api/update", s.handleUpgrade)
 	route("GET", "/api/projects", s.handleListProjects)
 	route("POST", "/api/projects", s.handleAddProject)
 	route("PATCH", "/api/projects/{project}", s.handleRenameProject)
