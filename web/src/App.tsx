@@ -1,80 +1,161 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useBoard, useConfig, useMoveTask } from '@/api/hooks'
+import { useBoard, useConfig, useMoveTask, useProjects } from '@/api/hooks'
 import type { Task } from '@/api/types'
 import { AppHeader } from '@/components/app-header'
 import { BoardColumn } from '@/components/board-column'
 import { BoardDnd } from '@/components/board-dnd'
+import { ProjectSwitcher } from '@/components/project-switcher'
 import { TaskCreate } from '@/components/task-create'
 import { TaskDetail } from '@/components/task-detail'
 import { filterBoards } from '@/lib/filter'
+import { readLocation, writeLocation } from '@/lib/location'
 import { useUnread } from '@/hooks/use-unread'
 import { Button } from '@/components/ui/button'
 
-/** Task detail is deep-linked at /t/<id> so a card can be bookmarked or
- *  shared; one route does not need a router. */
-function idFromLocation(): string | null {
-  const m = /^\/t\/([0-9a-z]+)$/.exec(window.location.pathname)
-  return m ? m[1] : null
-}
+const LAST_PROJECT = 'todomd-web:project'
 
 export default function App() {
-  const board = useBoard()
+  const projects = useProjects()
   const config = useConfig()
-  const move = useMoveTask()
   const qc = useQueryClient()
-  const { unreadOf, markRead, markAllRead, count } = useUnread()
 
+  const [route, setRoute] = useState(readLocation)
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<string | null>(idFromLocation)
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
+  const [switching, setSwitching] = useState(false)
 
   useEffect(() => {
-    const onPop = () => setSelected(idFromLocation())
+    const onPop = () => setRoute(readLocation())
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
+  const list = useMemo(() => projects.data?.projects ?? [], [projects.data])
+  // The project in the URL wins; otherwise the one you looked at last, and
+  // failing that the first on the list.
+  const currentId = useMemo(() => {
+    const remembered = localStorage.getItem(LAST_PROJECT)
+    const known = (id: string | null) => list.some((p) => p.id === id)
+    if (known(route.project)) return route.project!
+    if (known(remembered)) return remembered!
+    return list[0]?.id
+  }, [list, route.project])
+  const current = list.find((p) => p.id === currentId)
+
+  const board = useBoard(currentId)
+  const move = useMoveTask(currentId ?? '')
+  const { unreadOf, markRead, markAllRead, countFor, count } = useUnread({
+    current: currentId,
+    projects: list,
+    includeOthers: list.length > 1,
+  })
+
+  // Keep the URL and the remembered project in step with what is on screen.
+  useEffect(() => {
+    if (!currentId) return
+    localStorage.setItem(LAST_PROJECT, currentId)
+    if (route.project !== currentId) {
+      writeLocation({ project: currentId, task: null }, { replace: true })
+      setRoute({ project: currentId, task: null })
+    }
+  }, [currentId, route.project])
+
+  const selectProject = useCallback((id: string) => {
+    writeLocation({ project: id, task: null })
+    setRoute({ project: id, task: null })
+    setQuery('')
+  }, [])
+
   const openTask = useCallback(
     (task: Task) => {
-      setSelected(task.id)
-      markRead(task.id)
-      window.history.pushState(null, '', `/t/${task.id}`)
+      if (!currentId) return
+      markRead(currentId, task.id)
+      writeLocation({ project: currentId, task: task.id })
+      setRoute({ project: currentId, task: task.id })
     },
-    [markRead],
+    [currentId, markRead],
   )
 
   const closeTask = useCallback(() => {
-    setSelected(null)
-    if (idFromLocation()) window.history.pushState(null, '', '/')
-  }, [])
+    if (!currentId) return
+    writeLocation({ project: currentId, task: null })
+    setRoute({ project: currentId, task: null })
+  }, [currentId])
 
   const boards = useMemo(() => board.data?.boards ?? [], [board.data])
   const boardNames = boards.map((b) => b.name)
   const filtered = useMemo(() => filterBoards(boards, query), [boards, query])
-  const task = boards.flatMap((b) => b.tasks).find((t) => t.id === selected) ?? null
+  const task = boards.flatMap((b) => b.tasks).find((t) => t.id === route.task) ?? null
 
   // A deep link to a task that no longer exists shouldn't leave a dead modal.
   useEffect(() => {
-    if (selected && board.isSuccess && !task) closeTask()
-  }, [selected, task, board.isSuccess, closeTask])
+    if (route.task && board.isSuccess && !task) closeTask()
+  }, [route.task, task, board.isSuccess, closeTask])
+
+  // "p" opens the switcher, 1–9 jump straight to a project.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return
+      if (target?.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'p' && list.length > 1) {
+        e.preventDefault()
+        setSwitching(true)
+      } else if (/^[1-9]$/.test(e.key)) {
+        const picked = list[Number(e.key) - 1]
+        if (picked?.available) {
+          e.preventDefault()
+          selectProject(picked.id)
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [list, selectProject])
+
+  const configurable = projects.data?.configurable ?? false
+  const noProjects = projects.isSuccess && list.length === 0
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <AppHeader
-        file={board.data?.file ?? config.data?.file}
+        project={
+          <ProjectSwitcher
+            projects={list}
+            current={current}
+            unreadFor={countFor}
+            onSelect={selectProject}
+            configurable={configurable}
+            open={switching}
+            onOpenChange={setSwitching}
+          />
+        }
+        file={current?.file}
         query={query}
         onQueryChange={setQuery}
+        canEdit={!!currentId}
         onAdd={() => setCreatingIn(boardNames[0] ?? 'Backlog')}
         onRefresh={() => void qc.invalidateQueries()}
-        refreshing={board.isFetching}
+        refreshing={board.isFetching || projects.isFetching}
         unreadCount={count}
-        onClearUnread={markAllRead}
+        onClearUnread={() => currentId && markAllRead(currentId)}
       />
 
       <main className="min-h-0 grow">
-        {board.isPending && (
+        {noProjects && (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              No todo files yet.
+            </p>
+            <Button size="sm" onClick={() => setSwitching(true)}>
+              Add a project
+            </Button>
+          </div>
+        )}
+
+        {!noProjects && (board.isPending || projects.isPending) && (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 size-4 animate-spin" />
             Reading the file…
@@ -112,8 +193,9 @@ export default function App() {
         )}
       </main>
 
-      {task && (
+      {task && currentId && (
         <TaskDetail
+          project={currentId}
           task={task}
           boards={boardNames}
           defaultAuthor={config.data?.author ?? 'user'}
@@ -122,12 +204,15 @@ export default function App() {
         />
       )}
 
-      <TaskCreate
-        open={creatingIn !== null}
-        onOpenChange={(next) => !next && setCreatingIn(null)}
-        boards={boardNames}
-        board={creatingIn ?? boardNames[0] ?? 'Backlog'}
-      />
+      {currentId && (
+        <TaskCreate
+          project={currentId}
+          open={creatingIn !== null}
+          onOpenChange={(next) => !next && setCreatingIn(null)}
+          boards={boardNames}
+          board={creatingIn ?? boardNames[0] ?? 'Backlog'}
+        />
+      )}
     </div>
   )
 }

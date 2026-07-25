@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 const AUTHOR_KEY = 'todomd-web:author'
 
 export interface TaskDetailProps {
+  project: string
   task: Task
   boards: string[]
   defaultAuthor: string
@@ -25,6 +26,7 @@ export interface TaskDetailProps {
 }
 
 export function TaskDetail({
+  project,
   task,
   boards,
   defaultAuthor,
@@ -34,9 +36,9 @@ export function TaskDetail({
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const update = useUpdateTask()
-  const move = useMoveTask()
-  const remove = useDeleteTask()
+  const update = useUpdateTask(project)
+  const move = useMoveTask(project)
+  const remove = useDeleteTask(project)
 
   // Leave edit mode when a different task is opened.
   useEffect(() => {
@@ -114,7 +116,7 @@ export function TaskDetail({
           <p className="text-sm text-muted-foreground italic">No description</p>
         )}
 
-        <Comments task={task} defaultAuthor={defaultAuthor} />
+        <Comments project={project} task={task} defaultAuthor={defaultAuthor} />
 
         <div className="flex items-center justify-end gap-2 border-t pt-3">
           {confirmDelete ? (
@@ -229,12 +231,20 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
   )
 }
 
-function Comments({ task, defaultAuthor }: { task: Task; defaultAuthor: string }) {
+function Comments({
+  project,
+  task,
+  defaultAuthor,
+}: {
+  project: string
+  task: Task
+  defaultAuthor: string
+}) {
   const [text, setText] = useState('')
   const [author, setAuthor] = useState(
     () => localStorage.getItem(AUTHOR_KEY) ?? defaultAuthor,
   )
-  const add = useAddComment()
+  const add = useAddComment(project)
   const box = useRef<HTMLTextAreaElement>(null)
   const mobile = useIsMobile()
 

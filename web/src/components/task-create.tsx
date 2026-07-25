@@ -9,6 +9,7 @@ import { BoardSelect } from '@/components/board-select'
 import { parseTags } from '@/lib/tags'
 
 export interface TaskCreateProps {
+  project: string
   open: boolean
   onOpenChange: (open: boolean) => void
   boards: string[]
@@ -16,13 +17,13 @@ export interface TaskCreateProps {
   board: string
 }
 
-export function TaskCreate({ open, onOpenChange, boards, board }: TaskCreateProps) {
+export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskCreateProps) {
   const [target, setTarget] = useState(board)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState('')
   const [due, setDue] = useState('')
-  const create = useCreateTask()
+  const create = useCreateTask(project)
 
   useEffect(() => {
     if (open) {

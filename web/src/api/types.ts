@@ -23,16 +23,41 @@ export interface Board {
 }
 
 export interface BoardResponse {
+  project: string
   file: string
   rev: string
   boards: Board[]
 }
 
 export interface Config {
-  file: string
   author: string
   version: string
   todomdVersion: string
+  /** False when the project list came from the command line, in which case
+   *  the UI hides its add and remove controls. */
+  configurable: boolean
+  configFile: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  file: string
+  dir: string
+  /** False when the file has been moved or deleted since it was listed. */
+  available: boolean
+}
+
+export interface ProjectsResponse {
+  projects: Project[]
+  configurable: boolean
+}
+
+export interface NewProject {
+  file: string
+  name?: string
+  /** Create the file with `todomd init` when it does not exist yet. */
+  create?: boolean
 }
 
 export type ChangeType =
@@ -55,12 +80,14 @@ export interface ChangeEvent {
 }
 
 export interface ChangesResponse {
+  project: string
   rev: string
   initialized: boolean
   events: ChangeEvent[]
 }
 
 export interface TaskResponse {
+  project: string
   task: Task
   rev: string
 }

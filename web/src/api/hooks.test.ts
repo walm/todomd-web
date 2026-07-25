@@ -13,6 +13,7 @@ const task = (id: string, board: string): Task => ({
 })
 
 const board = (): BoardResponse => ({
+  project: 'demo',
   file: '/tmp/TODO.md',
   rev: '1',
   boards: [
