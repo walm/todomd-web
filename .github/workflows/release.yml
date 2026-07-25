@@ -20,7 +20,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '25'
-      - run: go install github.com/walm/todomd@latest
+      # Retried because the checksum database occasionally answers 500, which
+      # has nothing to do with this repo's code — and here it costs a release.
+      - name: install todomd
+        run: |
+          for attempt in 1 2 3; do
+            go install github.com/walm/todomd@latest && exit 0
+            echo "todomd install failed (attempt $attempt), retrying…" >&2
+            sleep 10
+          done
+          exit 1
       - run: go vet ./...
       - run: go test ./...
       - uses: goreleaser/goreleaser-action@v6
