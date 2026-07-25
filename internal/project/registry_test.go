@@ -240,3 +240,99 @@ func TestGet(t *testing.T) {
 		t.Errorf("Get(unknown) = %v", err)
 	}
 }
+
+func TestRenameChangesTheNameAndTheID(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.json")
+	r, _ := Load(path)
+	// Two directories called "docs" is the case that makes renaming worth
+	// having: without it they are "docs" and "docs-2" forever.
+	first, err := r.Add(touch(t, root, filepath.Join("todomd", "docs")), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := r.Add(touch(t, root, filepath.Join("house", "docs")), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ID != "docs" || second.ID != "docs-2" {
+		t.Fatalf("ids = %v", ids(r.List()))
+	}
+
+	renamed, err := r.Rename("docs-2", "House notes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamed.Name != "House notes" || renamed.ID != "house-notes" {
+		t.Errorf("renamed = %+v", renamed)
+	}
+	if _, err := r.Get("docs-2"); !errors.Is(err, ErrNotFound) {
+		t.Error("the old id should be gone")
+	}
+
+	// It survives a reload, and the file it points at is unchanged.
+	reloaded, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := reloaded.List()
+	if len(entries) != 2 || entries[1].Name != "House notes" || entries[1].File != second.File {
+		t.Errorf("after reload: %+v", entries)
+	}
+}
+
+func TestRenameKeepsItsOwnIDWhenTheSlugIsUnchanged(t *testing.T) {
+	root := t.TempDir()
+	r, _ := Load(filepath.Join(root, "config.json"))
+	if _, err := r.Add(touch(t, root, "alpha"), ""); err != nil {
+		t.Fatal(err)
+	}
+	// Renaming to something that slugs the same must not collide with itself
+	// and become "alpha-2".
+	renamed, err := r.Rename("alpha", "Alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamed.ID != "alpha" || renamed.Name != "Alpha" {
+		t.Errorf("renamed = %+v", renamed)
+	}
+}
+
+func TestRenameCollidesLikeAddDoes(t *testing.T) {
+	root := t.TempDir()
+	r, _ := Load(filepath.Join(root, "config.json"))
+	if _, err := r.Add(touch(t, root, "alpha"), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Add(touch(t, root, "beta"), ""); err != nil {
+		t.Fatal(err)
+	}
+	renamed, err := r.Rename("beta", "Alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renamed.ID != "alpha-2" {
+		t.Errorf("id = %q, want alpha-2", renamed.ID)
+	}
+}
+
+func TestRenameRejectsEmptyAndRefusesFlagLists(t *testing.T) {
+	root := t.TempDir()
+	r, _ := Load(filepath.Join(root, "config.json"))
+	if _, err := r.Add(touch(t, root, "alpha"), ""); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"", "   ", "two\nlines"} {
+		if _, err := r.Rename("alpha", name); err == nil {
+			t.Errorf("Rename(%q) should fail", name)
+		}
+	}
+	if _, err := r.Rename("nope", "x"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("Rename(unknown) = %v", err)
+	}
+
+	fixed, _ := FromFiles([]string{touch(t, root, "gamma")})
+	if _, err := fixed.Rename("gamma", "x"); !errors.Is(err, ErrNotConfigurable) {
+		t.Errorf("Rename on a flag list = %v", err)
+	}
+}

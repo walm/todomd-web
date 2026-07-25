@@ -154,13 +154,21 @@ func (r *Registry) append(e Entry) {
 	r.entries = append(r.entries, e)
 }
 
-func (r *Registry) uniqueID(base string) string {
+// uniqueID returns base, or base-2, base-3… if it is already in use. except
+// names an entry to ignore, so renaming a project can keep its own id.
+func (r *Registry) uniqueID(base string, except ...string) string {
 	if base == "" {
 		base = "project"
 	}
+	skip := map[string]bool{}
+	for _, id := range except {
+		skip[id] = true
+	}
 	taken := map[string]bool{}
 	for _, e := range r.entries {
-		taken[e.ID] = true
+		if !skip[e.ID] {
+			taken[e.ID] = true
+		}
 	}
 	if !taken[base] {
 		return base
@@ -242,6 +250,41 @@ func (r *Registry) Add(file, name string) (Entry, error) {
 		return Entry{}, err
 	}
 	return added, nil
+}
+
+// Rename changes a project's name and, with it, the id it is addressed by:
+// a project called "House" should not live at /p/docs-2 because that was the
+// directory it happened to sit in. Returns the updated entry, whose ID the
+// caller must assume has changed.
+func (r *Registry) Rename(id, name string) (Entry, error) {
+	if !r.Configurable() {
+		return Entry{}, ErrNotConfigurable
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Entry{}, errors.New("a project needs a name")
+	}
+	if strings.ContainsAny(name, "\n\r") {
+		return Entry{}, errors.New("a project name must be a single line")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, e := range r.entries {
+		if e.ID != id {
+			continue
+		}
+		before := e
+		e.Name = name
+		e.ID = r.uniqueID(Slug(name), id)
+		r.entries[i] = e
+		if err := r.save(); err != nil {
+			r.entries[i] = before
+			return Entry{}, err
+		}
+		return e, nil
+	}
+	return Entry{}, ErrNotFound
 }
 
 // Remove drops a project from the list and saves it. The todo file itself is
