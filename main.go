@@ -58,7 +58,9 @@ func run() error {
 	)
 	flag.Var(&files, "file", "todo markdown file to serve; repeat for several projects (default: the config file, else TODO.md searched upward)")
 	flag.Var(&files, "f", "shorthand for --file")
-	flag.Parse()
+	if err := flag.CommandLine.Parse(flagsFirst(os.Args[1:])); err != nil {
+		return err
+	}
 	// Files may also be given positionally: todomd-web a/TODO.md b/TODO.md
 	files = append(files, flag.Args()...)
 	if *showVersion {
@@ -120,6 +122,43 @@ func run() error {
 		defer cancel()
 		return srv.Shutdown(shutdown)
 	}
+}
+
+// valueFlags are the flags that take a separate argument. flagsFirst needs to
+// know them to tell "--port 8080" (a flag and its value) from a file path.
+var valueFlags = map[string]bool{
+	"file": true, "f": true, "port": true, "author": true,
+	"todomd": true, "dev": true, "config": true,
+}
+
+// flagsFirst moves flags ahead of positional arguments, because Go's flag
+// package stops parsing at the first non-flag argument: without this,
+// `todomd-web a/TODO.md --port 8080` reads --port as a third todo file and
+// fails with a baffling "no TODO.md found".
+func flagsFirst(args []string) []string {
+	var flags, positional []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			positional = append(positional, args[i+1:]...)
+			i = len(args)
+		case len(arg) > 1 && strings.HasPrefix(arg, "-"):
+			flags = append(flags, arg)
+			name := strings.TrimLeft(arg, "-")
+			if !strings.Contains(arg, "=") && valueFlags[name] && i+1 < len(args) {
+				i++
+				flags = append(flags, args[i])
+			}
+		default:
+			positional = append(positional, arg)
+		}
+	}
+	if len(positional) == 0 {
+		return flags
+	}
+	// "--" so a file path that happens to start with a dash stays a file.
+	return append(append(flags, "--"), positional...)
 }
 
 // fileList collects a repeatable --file flag.

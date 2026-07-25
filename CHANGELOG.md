@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.1
+
+- Flags typed after file arguments (`todomd-web a/TODO.md --port 8080`) were
+  read as extra todo files and failed with a misleading "no TODO.md found".
+  Arguments are now reordered before parsing.
+
 ## v0.2.0
 
 - **Several projects at once.** Register todo files on the command line
