@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0
 
 - `todomd-web upgrade` installs the latest release over the running binary,
   with the same sha256 verification `install.sh` does — plus a check that the
