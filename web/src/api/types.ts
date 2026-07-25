@@ -39,6 +39,23 @@ export interface Config {
   configFile: string
 }
 
+export interface UpdateStatus {
+  current: string
+  latest?: string
+  available: boolean
+  releaseUrl?: string
+  /** False for a development build, or when checking is switched off. */
+  supported: boolean
+  checkedAt?: string
+}
+
+export interface UpgradeResult {
+  upgraded: boolean
+  version: string
+  /** The server is replacing itself; wait for it and reload. */
+  restarting: boolean
+}
+
 export interface Project {
   id: string
   name: string

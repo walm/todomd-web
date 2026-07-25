@@ -65,6 +65,11 @@ func run() error {
 	)
 	flag.Var(&files, "file", "todo markdown file to serve; repeat for several projects (default: the config file, else TODO.md searched upward)")
 	flag.Var(&files, "f", "shorthand for --file")
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, "Usage: todomd-web [flags] [TODO.md...]\n\n"+
+			"Commands:\n  upgrade\tinstall the latest release over this binary\n\nFlags:\n")
+		flag.PrintDefaults()
+	}
 	if err := flag.CommandLine.Parse(flagsFirst(os.Args[1:])); err != nil {
 		return err
 	}

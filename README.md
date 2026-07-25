@@ -37,6 +37,27 @@ needed):
 go install github.com/walm/todomd-web@latest
 ```
 
+### Upgrading
+
+```sh
+todomd-web upgrade          # download the latest release and replace this binary
+todomd-web upgrade --check  # just report what's available
+```
+
+It verifies the release's published sha256 and checks that the downloaded
+binary actually runs before swapping it in; anything that fails leaves the
+binary you have exactly where it was.
+
+Because the board tends to stay open for weeks, todomd-web also says so **in
+the UI**: a bar above the board offers **Changelog** and **Upgrade**. Upgrading
+from there installs the release and restarts the server into it, then the page
+reloads itself — no terminal needed. Dismissing the bar hides that version
+only; the next release says hello again.
+
+The check runs at most every six hours, from a cached answer, and never blocks
+a request. `TODOMD_WEB_NO_UPDATE_CHECK=1` switches it off entirely, and a
+source build never nags (or upgrades — use `git pull`).
+
 ## 🚀 Use
 
 ```sh
@@ -147,6 +168,8 @@ server remembering which one you are looking at.
 | Method | Path | Body |
 |---|---|---|
 | `GET` | `/api/config` | — |
+| `GET` | `/api/update` | — (cached; refreshes in the background) |
+| `POST` | `/api/update` | — install the latest release and restart into it |
 | `GET` | `/api/projects` | — |
 | `POST` | `/api/projects` | `{file, name?, create?}` |
 | `PATCH` | `/api/projects/{project}` | `{name}` — the id changes with it, so follow the response |

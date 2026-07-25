@@ -9,6 +9,7 @@ import { BoardDnd } from '@/components/board-dnd'
 import { ProjectSwitcher } from '@/components/project-switcher'
 import { TaskCreate } from '@/components/task-create'
 import { TaskDetail } from '@/components/task-detail'
+import { UpdateBanner } from '@/components/update-banner'
 import { filterBoards } from '@/lib/filter'
 import { readLocation, writeLocation } from '@/lib/location'
 import { useUnread } from '@/hooks/use-unread'
@@ -134,6 +135,7 @@ export default function App() {
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
+      <UpdateBanner />
       <AppHeader
         project={
           <ProjectSwitcher
