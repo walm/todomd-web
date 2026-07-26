@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/walm/todomd-web/internal/todomd"
 )
 
 // touch creates dir/TODO.md under a temp root and returns its path.
@@ -32,12 +34,20 @@ func ids(entries []Entry) []string {
 
 func TestNamesComeFromTheDirectory(t *testing.T) {
 	// Every one of these files is called TODO.md, so the directory is the
-	// only thing that tells them apart.
-	if got := NameFor("/Users/x/src/todomd-web/TODO.md"); got != "todomd-web" {
-		t.Errorf("NameFor = %q", got)
-	}
-	if got := NameFor("/notes.md"); got != "notes" {
-		t.Errorf("NameFor at the root = %q", got)
+	// only thing that tells them apart — and for remote files the host too,
+	// or two servers with an /srv/app would both be "app".
+	for _, tt := range []struct {
+		addr todomd.Address
+		want string
+	}{
+		{todomd.Address{Path: "/Users/x/src/todomd-web/TODO.md"}, "todomd-web"},
+		{todomd.Address{Path: "/notes.md"}, "notes"},
+		{todomd.Address{Host: "web1", Path: "/srv/app/TODO.md"}, "web1:app"},
+		{todomd.Address{Host: "deploy@web2", Path: "/srv/app/TODO.md"}, "deploy@web2:app"},
+	} {
+		if got := NameFor(tt.addr); got != tt.want {
+			t.Errorf("NameFor(%+v) = %q, want %q", tt.addr, got, tt.want)
+		}
 	}
 }
 
@@ -73,7 +83,7 @@ func TestFromFilesIsFixed(t *testing.T) {
 	if r.Configurable() {
 		t.Error("a list from the command line must not be editable through the API")
 	}
-	if _, err := r.Add(touch(t, root, "gamma"), ""); !errors.Is(err, ErrNotConfigurable) {
+	if _, err := r.Add(touch(t, root, "gamma"), "", ""); !errors.Is(err, ErrNotConfigurable) {
 		t.Errorf("Add = %v, want ErrNotConfigurable", err)
 	}
 	if err := r.Remove("alpha"); !errors.Is(err, ErrNotConfigurable) {
@@ -113,10 +123,10 @@ func TestConfigRoundTrip(t *testing.T) {
 		t.Fatalf("fresh registry = %+v", r.List())
 	}
 
-	if _, err := r.Add(a, ""); err != nil {
+	if _, err := r.Add(a, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Add(b, "Beta Project"); err != nil {
+	if _, err := r.Add(b, "Beta Project", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,7 +152,7 @@ func TestRemoveOnlyEditsTheList(t *testing.T) {
 	a := touch(t, root, "alpha")
 
 	r, _ := Load(path)
-	if _, err := r.Add(a, ""); err != nil {
+	if _, err := r.Add(a, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Remove("alpha"); err != nil {
@@ -173,7 +183,7 @@ func TestAddRejectsWhatIsNotATodoFile(t *testing.T) {
 		{"directory", root},
 		{"not markdown", notes},
 	} {
-		if _, err := r.Add(tt.path, ""); err == nil {
+		if _, err := r.Add(tt.path, "", ""); err == nil {
 			t.Errorf("%s: expected an error", tt.name)
 		}
 	}
@@ -187,11 +197,11 @@ func TestAddingTheSameFileTwiceIsFine(t *testing.T) {
 	r, _ := Load(filepath.Join(root, "config.json"))
 	a := touch(t, root, "alpha")
 
-	first, err := r.Add(a, "")
+	first, err := r.Add(a, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := r.Add(a, "")
+	again, err := r.Add(a, "", "")
 	if err != nil {
 		t.Fatalf("adding an already-listed project should be a no-op: %v", err)
 	}
@@ -214,7 +224,7 @@ func TestSeedIsNotWrittenUntilSomethingChanges(t *testing.T) {
 	}
 
 	// …but once the list is edited, the discovered project is saved with it.
-	if _, err := r.Add(b, ""); err != nil {
+	if _, err := r.Add(b, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -247,11 +257,11 @@ func TestRenameChangesTheNameAndTheID(t *testing.T) {
 	r, _ := Load(path)
 	// Two directories called "docs" is the case that makes renaming worth
 	// having: without it they are "docs" and "docs-2" forever.
-	first, err := r.Add(touch(t, root, filepath.Join("todomd", "docs")), "")
+	first, err := r.Add(touch(t, root, filepath.Join("todomd", "docs")), "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := r.Add(touch(t, root, filepath.Join("house", "docs")), "")
+	second, err := r.Add(touch(t, root, filepath.Join("house", "docs")), "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +294,7 @@ func TestRenameChangesTheNameAndTheID(t *testing.T) {
 func TestRenameKeepsItsOwnIDWhenTheSlugIsUnchanged(t *testing.T) {
 	root := t.TempDir()
 	r, _ := Load(filepath.Join(root, "config.json"))
-	if _, err := r.Add(touch(t, root, "alpha"), ""); err != nil {
+	if _, err := r.Add(touch(t, root, "alpha"), "", ""); err != nil {
 		t.Fatal(err)
 	}
 	// Renaming to something that slugs the same must not collide with itself
@@ -301,10 +311,10 @@ func TestRenameKeepsItsOwnIDWhenTheSlugIsUnchanged(t *testing.T) {
 func TestRenameCollidesLikeAddDoes(t *testing.T) {
 	root := t.TempDir()
 	r, _ := Load(filepath.Join(root, "config.json"))
-	if _, err := r.Add(touch(t, root, "alpha"), ""); err != nil {
+	if _, err := r.Add(touch(t, root, "alpha"), "", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Add(touch(t, root, "beta"), ""); err != nil {
+	if _, err := r.Add(touch(t, root, "beta"), "", ""); err != nil {
 		t.Fatal(err)
 	}
 	renamed, err := r.Rename("beta", "Alpha")
@@ -319,7 +329,7 @@ func TestRenameCollidesLikeAddDoes(t *testing.T) {
 func TestRenameRejectsEmptyAndRefusesFlagLists(t *testing.T) {
 	root := t.TempDir()
 	r, _ := Load(filepath.Join(root, "config.json"))
-	if _, err := r.Add(touch(t, root, "alpha"), ""); err != nil {
+	if _, err := r.Add(touch(t, root, "alpha"), "", ""); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"", "   ", "two\nlines"} {
@@ -334,5 +344,62 @@ func TestRenameRejectsEmptyAndRefusesFlagLists(t *testing.T) {
 	fixed, _ := FromFiles([]string{touch(t, root, "gamma")})
 	if _, err := fixed.Rename("gamma", "x"); !errors.Is(err, ErrNotConfigurable) {
 		t.Errorf("Rename on a flag list = %v", err)
+	}
+}
+
+func TestRemoteProjectsAreAcceptedWithoutTouchingTheDisk(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.json")
+	r, _ := Load(path)
+
+	// No os.Stat: only the remote machine can say whether the file is there,
+	// and the server verifies over ssh before this is called.
+	added, err := r.Add("deploy@web1:/srv/app/TODO.md", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !added.Remote() || added.Host != "deploy@web1" {
+		t.Fatalf("added = %+v", added)
+	}
+	if added.ID != "deploy-web1-app" || added.Name != "deploy@web1:app" {
+		t.Errorf("id/name = %q / %q", added.ID, added.Name)
+	}
+	if added.File != "deploy@web1:/srv/app/TODO.md" {
+		t.Errorf("the address should be kept as written: %q", added.File)
+	}
+
+	// A per-project todomd path survives the round trip, because a remote
+	// PATH often lacks ~/.local/bin.
+	if _, err := r.Add("web2:/srv/x/TODO.md", "Web 2", "/home/deploy/.local/bin/todomd"); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := reloaded.List()
+	if len(entries) != 2 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	if entries[1].Bin != "/home/deploy/.local/bin/todomd" || entries[1].Name != "Web 2" {
+		t.Errorf("second entry = %+v", entries[1])
+	}
+	if !entries[0].Remote() || entries[0].Host != "deploy@web1" {
+		t.Errorf("first entry lost its host: %+v", entries[0])
+	}
+}
+
+func TestRemoteAndLocalCoexist(t *testing.T) {
+	root := t.TempDir()
+	r, err := FromFiles([]string{touch(t, root, "local"), "web1:/srv/app/TODO.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := r.List()
+	if len(entries) != 2 || entries[0].Remote() || !entries[1].Remote() {
+		t.Fatalf("entries = %+v", entries)
+	}
+	if entries[1].ID != "web1-app" {
+		t.Errorf("remote id = %q", entries[1].ID)
 	}
 }

@@ -132,7 +132,7 @@ func configServer(t *testing.T) (*httptest.Server, string, string) {
 		t.Fatal(err)
 	}
 	alpha := initFile(t, root, "alpha")
-	if _, err := registry.Add(alpha, ""); err != nil {
+	if _, err := registry.Add(alpha, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	return serve(t, registry), root, alpha
