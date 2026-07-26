@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { Plus, RefreshCw, Search, X } from 'lucide-react'
+import { Columns3, List, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/components/theme-toggle'
+import type { View } from '@/hooks/use-view'
 import { cn } from '@/lib/utils'
 
 export interface AppHeaderProps {
@@ -13,6 +14,8 @@ export interface AppHeaderProps {
   onQueryChange: (value: string) => void
   /** False when there is no project to add tasks to yet. */
   canEdit: boolean
+  view: View
+  onToggleView: () => void
   onAdd: () => void
   onRefresh: () => void
   refreshing: boolean
@@ -26,6 +29,8 @@ export function AppHeader({
   query,
   onQueryChange,
   canEdit,
+  view,
+  onToggleView,
   onAdd,
   onRefresh,
   refreshing,
@@ -50,11 +55,14 @@ export function AppHeader({
       } else if (e.key === 'r') {
         e.preventDefault()
         onRefresh()
+      } else if (e.key === 'v') {
+        e.preventDefault()
+        onToggleView()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onAdd, onRefresh])
+  }, [onAdd, onRefresh, onToggleView])
 
   const dir = file?.split('/').slice(0, -1).join('/')
 
@@ -109,6 +117,17 @@ export function AppHeader({
           </Button>
         )}
 
+        {/* The icon shows what you would switch to, which is how people
+            already read a view toggle. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={view === 'board' ? 'Switch to list view' : 'Switch to board view'}
+          title={view === 'board' ? 'List view (v)' : 'Board view (v)'}
+          onClick={onToggleView}
+        >
+          {view === 'board' ? <List /> : <Columns3 />}
+        </Button>
         <Button
           variant="ghost"
           size="icon-sm"

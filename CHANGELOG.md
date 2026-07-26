@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A **list view** (`v`, or the toggle in the header): every task in one
+  column, grouped under its board, with sticky headings. A kanban board is
+  wide by nature, which on a phone means scrolling sideways to see what is in
+  progress. Drag-and-drop works the same in both views — a row dragged under
+  another heading changes board exactly as a card does — and the choice is
+  remembered per browser.
 - An app icon: a favicon, and the PNGs iOS and Android want when the board is
   added to a home screen, plus a web app manifest so it opens standalone
   rather than in a tab, named **TodoMD**.
@@ -9,6 +15,8 @@
   focused field is under 16px, and the zoom stayed — which threw off
   drag-and-drop and the bottom sheets afterwards; every field now stays 16px
   on phones and keeps its compact size on a desktop.
+
+## v0.4.0
 
 - **Projects over ssh.** A project can name a file on another machine —
   `todomd-web deploy@web1:/srv/app/TODO.md`, or the same scp syntax in the

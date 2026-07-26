@@ -81,7 +81,11 @@ todomd-web ~/src/todomd/TODO.md ~/src/todomd-web/TODO.md ~/notes/house
 | `--dev` | — | Proxy the UI to a Vite dev server, e.g. `http://127.0.0.1:5173` |
 
 On the board: click a card to open it, `n` for a new task, `/` to filter,
-`r` to reload, `p` to switch project (`1`–`9` jump straight to one). Drag cards between columns or up and down; on a phone, press
+`r` to reload, `p` to switch project (`1`–`9` jump straight to one), and `v`
+to swap between the board and a **list view** — everything in one column,
+grouped under its board, which reads better on a phone than scrolling
+sideways. Dragging works the same in both: a row dragged under another
+heading changes board exactly as a card does. Drag cards between columns or up and down; on a phone, press
 and hold briefly before dragging, or just open the card and change its board
 there. Task detail is deep-linked at `/t/<id>`, so a card can be bookmarked
 or shared.
