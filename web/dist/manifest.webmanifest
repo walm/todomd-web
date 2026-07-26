@@ -1,6 +1,6 @@
 {
-  "name": "todomd-web",
-  "short_name": "todomd",
+  "name": "TodoMD",
+  "short_name": "TodoMD",
   "description": "A Kanban board over a markdown TODO.md",
   "start_url": "/",
   "display": "standalone",

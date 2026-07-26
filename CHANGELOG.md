@@ -4,7 +4,7 @@
 
 - An app icon: a favicon, and the PNGs iOS and Android want when the board is
   added to a home screen, plus a web app manifest so it opens standalone
-  rather than in a tab.
+  rather than in a tab, named **TodoMD**.
 - Form fields no longer make iOS zoom the page. Safari zooms whenever a
   focused field is under 16px, and the zoom stayed — which threw off
   drag-and-drop and the bottom sheets afterwards; every field now stays 16px
