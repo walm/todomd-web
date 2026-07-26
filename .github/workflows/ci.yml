@@ -46,6 +46,9 @@ jobs:
       - run: npm test
       - run: npm run build
       # dist/ is committed so `go build` works without Node — keep it honest.
+      # `npm run build` empties dist first: building over an existing one lands
+      # on a different chunk-hash fixed point, which made this check pass or
+      # fail on what happened to be in the directory.
       - name: check the committed bundle is up to date
         run: |
           if ! git diff --quiet -- dist; then

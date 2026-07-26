@@ -200,7 +200,7 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
         onChange={(e) => setDescription(e.target.value)}
         aria-label="Description"
         placeholder="Description — markdown, kept verbatim in the file"
-        className="min-h-32 font-mono text-[0.8rem]"
+        className="min-h-32 font-mono text-base md:text-[0.8rem]"
       />
       <div className="flex flex-wrap gap-2">
         <Input
@@ -303,7 +303,7 @@ function Comments({
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             aria-label="Comment author"
-            className="h-8 w-28 text-sm"
+            className="h-8 w-28 text-base md:text-sm"
             title="Author recorded in the file — agents use their own name"
           />
           <div className="grow" />

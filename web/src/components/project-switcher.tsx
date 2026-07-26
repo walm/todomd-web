@@ -65,7 +65,10 @@ export function ProjectSwitcher({
         aria-label={single ? undefined : 'Switch project'}
         onClick={() => !single && onOpenChange(true)}
       >
-        <span className="max-w-40 truncate sm:max-w-56">
+        {/* A fixed cap, not a percentage: percentages contribute nothing to
+            intrinsic width, which collapses the header slot this sits in and
+            hands the whole row to the filter box. */}
+        <span className="max-w-32 truncate sm:max-w-56">
           {current?.name ?? 'No project'}
         </span>
         {!single && <ChevronsUpDown className="opacity-50" />}

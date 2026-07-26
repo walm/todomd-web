@@ -7,9 +7,16 @@ package web
 import (
 	"embed"
 	"io/fs"
+	"mime"
 	"net/http"
 	"strings"
 )
+
+func init() {
+	// Go's table has no entry for .webmanifest, and a manifest served as
+	// text/plain is one of those things that works until it doesn't.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 //go:embed all:dist
 var dist embed.FS
