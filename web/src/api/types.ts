@@ -61,7 +61,11 @@ export interface Project {
   name: string
   file: string
   dir: string
-  /** False when the file has been moved or deleted since it was listed. */
+  /** Set when the project lives on another machine, reached over ssh. */
+  host?: string
+  /** False when the file has been moved or deleted since it was listed.
+   *  Remote projects are taken on trust; they report their errors when
+   *  opened. */
   available: boolean
 }
 
@@ -75,6 +79,9 @@ export interface NewProject {
   name?: string
   /** Create the file with `todomd init` when it does not exist yet. */
   create?: boolean
+  /** The todomd binary for this project — a remote host's non-interactive
+   *  PATH often lacks it. */
+  todomd?: string
 }
 
 export type ChangeType =

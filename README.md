@@ -113,6 +113,39 @@ them. **Where the list comes from decides who owns it:**
   config at all, todomd-web falls back to the `TODO.md` it finds from the
   working directory, and writes the file only once you change the list.
 
+A project can also live on **another machine**, reached over ssh:
+
+```sh
+todomd-web deploy@web1:/srv/app/TODO.md ~/src/todomd-web/TODO.md
+```
+
+```json
+{ "file": "deploy@web1:/srv/app/TODO.md",
+  "todomd": "/home/deploy/.local/bin/todomd" }
+```
+
+Every read and write runs `todomd` on that host, so the lock, the atomic write
+and the change cursor all stay where the file is — which is what makes editing
+a board safe next to an agent working the same file there. Your `~/.ssh/config`
+is used as-is (aliases, jump hosts, keys, ports), no credentials are stored
+here, and connections are multiplexed so a request costs ~10 ms rather than a
+fresh handshake.
+
+Two things that will bite otherwise:
+
+- **`todomd` must be on the remote PATH** — and an ssh command runs a
+  *non-interactive* shell, which often skips `~/.local/bin` where the installer
+  puts it. Hence the per-project `"todomd"` above; the error message says this
+  too.
+- **The remote host must be reachable without a prompt.** todomd-web passes
+  `BatchMode=yes`, so a key needing a passphrase fails fast instead of hanging
+  a request on a prompt you cannot see. If `ssh host true` works in your
+  terminal, this works.
+
+Remote projects show an `ssh` chip in the switcher, and are taken on trust
+rather than checked on every listing — a broken one reports itself when you
+open its board.
+
 There is no directory scanning: paths are typed once, by you.
 
 **Adding** takes a path — a directory means the `TODO.md` inside it — and

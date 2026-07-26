@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -16,8 +17,12 @@ type projectJSON struct {
 	Name string `json:"name"`
 	File string `json:"file"`
 	Dir  string `json:"dir"`
+	// Host is set for a project on another machine, so the switcher can say so.
+	Host string `json:"host,omitempty"`
 	// Available is false when the file has been moved or deleted since it was
 	// listed. The switcher greys those out instead of the board breaking.
+	// A remote file is taken on trust: checking would be an ssh round trip per
+	// project on every list, and the board reports the real error when opened.
 	Available bool `json:"available"`
 }
 
@@ -27,14 +32,24 @@ type projectsResponse struct {
 }
 
 func describe(entry project.Entry) projectJSON {
-	info, err := os.Stat(entry.File)
-	return projectJSON{
+	out := projectJSON{
 		ID:        entry.ID,
 		Name:      entry.Name,
 		File:      entry.File,
-		Dir:       filepath.Dir(entry.File),
-		Available: err == nil && info.Mode().IsRegular(),
+		Host:      entry.Host,
+		Available: true,
 	}
+	if entry.Remote() {
+		addr, err := todomd.ParseAddress(entry.File)
+		if err == nil {
+			out.Dir = addr.Host + ":" + path.Dir(addr.Path)
+		}
+		return out
+	}
+	out.Dir = filepath.Dir(entry.File)
+	info, err := os.Stat(entry.File)
+	out.Available = err == nil && info.Mode().IsRegular()
+	return out
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +65,9 @@ type addProjectRequest struct {
 	Name string `json:"name"`
 	// Create runs `todomd init` when the file does not exist yet.
 	Create bool `json:"create"`
+	// Todomd is this project's todomd binary, for a remote host whose
+	// non-interactive PATH does not have it.
+	Todomd string `json:"todomd"`
 }
 
 // handleAddProject puts an existing todo file on the list, optionally
@@ -61,15 +79,26 @@ func (s *Server) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, err)
 		return
 	}
-	path := strings.TrimSpace(req.File)
-	if path == "" {
+	raw := strings.TrimSpace(req.File)
+	if raw == "" {
 		s.writeError(w, invalid("a file path is required"))
 		return
 	}
-	if strings.HasPrefix(path, "~/") {
+	addr, err := todomd.ParseAddress(raw)
+	if err != nil {
+		s.writeError(w, invalid(err.Error()))
+		return
+	}
+	if addr.Remote() {
+		s.addRemoteProject(w, r, addr, req)
+		return
+	}
+
+	path := addr.Path
+	if strings.HasPrefix(raw, "~/") {
 		home, err := os.UserHomeDir()
 		if err == nil {
-			path = filepath.Join(home, path[2:])
+			path = filepath.Join(home, raw[2:])
 		}
 	}
 	abs, err := filepath.Abs(path)
@@ -100,7 +129,7 @@ func (s *Server) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	entry, err := s.registry.Add(abs, req.Name)
+	entry, err := s.registry.Add(abs, req.Name, req.Todomd)
 	if err != nil {
 		if errors.Is(err, project.ErrNotConfigurable) {
 			writeJSON(w, http.StatusConflict, errorResponse{err.Error()})
@@ -139,6 +168,45 @@ func (s *Server) handleRenameProject(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.writeError(w, invalid(err.Error()))
 	}
+}
+
+// addRemoteProject lists the board over ssh before putting it on the list:
+// nothing here can stat a file on another machine, and finding out now — with
+// todomd's own message, or ssh's — beats a project that only fails when you
+// open it.
+func (s *Server) addRemoteProject(w http.ResponseWriter, r *http.Request, addr todomd.Address, req addProjectRequest) {
+	bin := req.Todomd
+	if bin == "" {
+		bin = s.bin
+	}
+	file := addr.String()
+	if strings.HasSuffix(addr.Path, "/") || path.Ext(addr.Path) == "" {
+		// A directory means the TODO.md inside it, as it does locally.
+		file = addr.Host + ":" + path.Join(addr.Path, "TODO.md")
+	}
+
+	if _, err := todomd.New(r.Context(), bin, file); err != nil {
+		var cli *todomd.Error
+		if !req.Create || !errors.As(err, &cli) || cli.NotFound() || cli.Code == 255 || cli.Code == 127 {
+			s.writeError(w, err)
+			return
+		}
+		if err := todomd.Init(r.Context(), bin, file); err != nil {
+			s.writeError(w, err)
+			return
+		}
+	}
+
+	entry, err := s.registry.Add(file, req.Name, req.Todomd)
+	if err != nil {
+		if errors.Is(err, project.ErrNotConfigurable) {
+			writeJSON(w, http.StatusConflict, errorResponse{err.Error()})
+			return
+		}
+		s.writeError(w, invalid(err.Error()))
+		return
+	}
+	writeJSON(w, http.StatusCreated, describe(entry))
 }
 
 // handleRemoveProject drops a project from the list. The todo file it points

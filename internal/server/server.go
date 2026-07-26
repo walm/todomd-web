@@ -161,7 +161,13 @@ func (s *Server) clientFor(r *http.Request, entry project.Entry) (*todomd.Client
 	if ok {
 		return client, nil
 	}
-	client, err := todomd.New(r.Context(), s.bin, entry.File)
+	// A project can name its own todomd — remote hosts often must, since an
+	// ssh command runs a non-interactive shell.
+	bin := entry.Bin
+	if bin == "" {
+		bin = s.bin
+	}
+	client, err := todomd.New(r.Context(), bin, entry.Address())
 	if err != nil {
 		return nil, err
 	}

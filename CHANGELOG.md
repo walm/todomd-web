@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Projects over ssh.** A project can name a file on another machine —
+  `todomd-web deploy@web1:/srv/app/TODO.md`, or the same scp syntax in the
+  config file — and every read and write runs `todomd` there. The lock, the
+  atomic write and the change cursor stay on the machine holding the file, so
+  a board edit serializes with an agent working that file on the same host.
+  Your ssh config is used as-is and no credentials are stored; connections are
+  multiplexed, and `BatchMode` turns a host that wants a passphrase into a
+  fast error rather than a hung request. A project may name its own `todomd`
+  binary, which remote hosts often need because an ssh command runs a
+  non-interactive shell.
+
 ## v0.3.0
 
 - `todomd-web upgrade` installs the latest release over the running binary,

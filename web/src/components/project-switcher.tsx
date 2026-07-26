@@ -6,6 +6,7 @@ import {
   FolderPlus,
   Loader2,
   Pencil,
+  Server,
   Trash2,
 } from 'lucide-react'
 import type { Project } from '@/api/types'
@@ -117,6 +118,15 @@ export function ProjectSwitcher({
                           title={`${unread} unread`}
                         >
                           {unread}
+                        </span>
+                      )}
+                      {project.host && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                          title={`On ${project.host}, over ssh`}
+                        >
+                          <Server className="size-3" />
+                          ssh
                         </span>
                       )}
                       {!project.available && (
@@ -287,12 +297,13 @@ function AddProject({ onDone }: { onDone: () => void }) {
           setPath(e.target.value)
           setMissing(false)
         }}
-        placeholder="~/src/project — or the path to a TODO.md"
+        placeholder="~/src/project, or deploy@web1:/srv/app/TODO.md"
         aria-label="Project path"
         autoFocus
       />
       <p className="text-xs text-muted-foreground">
-        A directory means the <code>TODO.md</code> inside it.
+        A directory means the <code>TODO.md</code> inside it. A{' '}
+        <code>host:/path</code> is fetched over ssh, using your ssh config.
       </p>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>

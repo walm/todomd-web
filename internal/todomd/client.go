@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,31 +40,47 @@ func (e *Error) NotFound() bool { return e.Code == 2 }
 // Ambiguous reports whether an ID prefix matched more than one task.
 func (e *Error) Ambiguous() bool { return e.Code == 3 }
 
-// Client runs todomd against one todo file.
+// Client runs todomd against one todo file, on this machine or another one.
 type Client struct {
-	Bin  string // resolved path to the todomd binary
-	File string // absolute path to the todo file
+	Bin  string // path to the todomd binary, on whichever machine runs it
+	File string // absolute path to the todo file there
+	Host string // "" for a local file; an ssh destination otherwise
 }
 
+// Remote reports whether this client works over ssh.
+func (c *Client) Remote() bool { return c.Host != "" }
+
 // New resolves the todomd binary and the todo file it should operate on.
-// bin defaults to "todomd" on PATH; file may be empty, in which case todomd's
-// own discovery (TODOMD_FILE, then TODO.md searched upward from the working
+// bin defaults to "todomd"; file may be empty, in which case todomd's own
+// discovery (TODOMD_FILE, then TODO.md searched upward from the working
 // directory) decides, and the resolved path is read back from the CLI.
+//
+// file may be an scp-style address — "deploy@web1:/srv/app/TODO.md" — in
+// which case every command runs on that host over ssh. The binary is then
+// resolved there, not here, so bin is taken as written.
 func New(ctx context.Context, bin, file string) (*Client, error) {
 	if bin == "" {
 		bin = DefaultBin
 	}
-	path, err := exec.LookPath(bin)
-	if err != nil {
-		return nil, ErrNotInstalled
-	}
-	c := &Client{Bin: path}
+	var addr Address
 	if file != "" {
-		abs, err := filepath.Abs(file)
-		if err != nil {
+		var err error
+		if addr, err = ParseAddress(file); err != nil {
 			return nil, err
 		}
-		c.File = abs
+	}
+
+	c := &Client{Bin: bin, File: addr.Path, Host: addr.Host}
+	if c.Remote() {
+		if _, err := exec.LookPath("ssh"); err != nil {
+			return nil, errors.New("ssh not found on PATH, needed for remote projects")
+		}
+	} else {
+		path, err := exec.LookPath(bin)
+		if err != nil {
+			return nil, ErrNotInstalled
+		}
+		c.Bin = path
 	}
 	// Round-trip through the CLI: proves todomd works, that the file exists
 	// and parses, and (when discovered) what its path is.
@@ -82,9 +99,16 @@ func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
 	if c.File != "" {
 		full = append([]string{"--file", c.File}, args...)
 	}
-	cmd := exec.CommandContext(ctx, c.Bin, full...)
-	// No shell is involved, so titles, descriptions and comments containing
-	// quotes, newlines or $ need no escaping.
+
+	name, argv := c.Bin, full
+	if c.Remote() {
+		// One argument for the remote shell, every piece of it quoted.
+		name, argv = "ssh", sshArgs(c.Host, remoteCommand(c.Bin, c.File, args))
+	}
+	cmd := exec.CommandContext(ctx, name, argv...)
+	// Locally no shell is involved, so titles, descriptions and comments
+	// containing quotes, newlines or $ need no escaping; remotely that is
+	// what remoteCommand's quoting restores.
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -92,13 +116,17 @@ func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
 	if err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
-			return nil, &Error{
+			failure := &Error{
 				Code: ee.ExitCode(),
 				Args: full,
 				Msg:  strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(stderr.String()), "todomd: ")),
 			}
+			if c.Remote() {
+				return nil, sshError(c.Host, failure)
+			}
+			return nil, failure
 		}
-		return nil, fmt.Errorf("running %s: %w", c.Bin, err)
+		return nil, fmt.Errorf("running %s: %w", name, err)
 	}
 	return []byte(stdout.String()), nil
 }
@@ -132,7 +160,13 @@ func (c *Client) Version(ctx context.Context) string {
 
 // Rev is a cheap fingerprint of the file's current state (size and
 // modification time), used by clients to notice they are showing stale data.
+// A remote file has no cheap fingerprint — stat would be another round trip —
+// so it reports none, and the UI falls back on refetching, which it does on
+// focus anyway.
 func (c *Client) Rev() string {
+	if c.Remote() {
+		return ""
+	}
 	st, err := os.Stat(c.File)
 	if err != nil {
 		return ""
@@ -251,23 +285,54 @@ func (c *Client) Changes(ctx context.Context, cursor string, peek bool, ignoreAu
 
 // Init creates a new todo file with todomd's default boards. It is a package
 // function rather than a method because it runs before there is a file to
-// build a client around.
+// build a client around. The file may be remote, in which case the parent
+// directory is created on that machine too.
 func Init(ctx context.Context, bin, file string) error {
 	if bin == "" {
 		bin = DefaultBin
 	}
-	path, err := exec.LookPath(bin)
-	if err != nil {
-		return ErrNotInstalled
-	}
-	abs, err := filepath.Abs(file)
+	addr, err := ParseAddress(file)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
-		return err
+	c := &Client{Bin: bin, File: addr.Path, Host: addr.Host}
+
+	if c.Remote() {
+		if _, err := exec.LookPath("ssh"); err != nil {
+			return errors.New("ssh not found on PATH, needed for remote projects")
+		}
+		if err := c.mkdirAll(ctx, path.Dir(addr.Path)); err != nil {
+			return err
+		}
+	} else {
+		resolved, err := exec.LookPath(bin)
+		if err != nil {
+			return ErrNotInstalled
+		}
+		c.Bin = resolved
+		if err := os.MkdirAll(filepath.Dir(addr.Path), 0o755); err != nil {
+			return err
+		}
 	}
-	c := &Client{Bin: path, File: abs}
 	_, err = c.run(ctx, "init")
 	return err
+}
+
+// mkdirAll creates a directory on the remote host.
+func (c *Client) mkdirAll(ctx context.Context, dir string) error {
+	cmd := exec.CommandContext(ctx, "ssh", sshArgs(c.Host, "mkdir -p "+quotePath(dir))...)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return sshError(c.Host, &Error{
+				Code: ee.ExitCode(),
+				Args: []string{"mkdir", "-p", dir},
+				Msg:  strings.TrimSpace(stderr.String()),
+			})
+		}
+		return err
+	}
+	return nil
 }

@@ -328,3 +328,14 @@ func TestReadsPickUpExternalEdits(t *testing.T) {
 		t.Errorf("rev %q did not change after an external edit", board.Rev)
 	}
 }
+
+// mustJSON encodes a body for a request, so tests can carry text that would
+// be unreadable inline.
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}

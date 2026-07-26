@@ -11,19 +11,37 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/walm/todomd-web/internal/todomd"
 )
 
-// Entry is one todo file on the list.
+// Entry is one todo file on the list, here or on another machine.
 type Entry struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// File is a local absolute path, or scp syntax for a remote one:
+	// "deploy@web1:/srv/app/TODO.md".
 	File string `json:"file"`
+	// Host is "" for a local file, otherwise the ssh destination.
+	Host string `json:"host,omitempty"`
+	// Bin overrides which todomd runs for this project. Remote hosts often
+	// need it: an ssh command runs a non-interactive shell, which frequently
+	// lacks ~/.local/bin.
+	Bin string `json:"todomd,omitempty"`
 }
+
+// Remote reports whether this project lives on another machine.
+func (e Entry) Remote() bool { return e.Host != "" }
+
+// Address is what the todomd client takes: the file as written, so a remote
+// one keeps its host.
+func (e Entry) Address() string { return e.File }
 
 // Source records where the list came from, which decides whether the UI may
 // change it: a list given on the command line is the operator's, not the
@@ -49,6 +67,9 @@ type config struct {
 type configEntry struct {
 	Name string `json:"name,omitempty"`
 	File string `json:"file"`
+	// Todomd is the binary to run for this project, when the default is not
+	// on the remote PATH.
+	Todomd string `json:"todomd,omitempty"`
 }
 
 // Registry is the list of projects, safe for concurrent use.
@@ -76,16 +97,30 @@ func ConfigPath() (string, error) {
 	return filepath.Join(base, "todomd-web", "config.json"), nil
 }
 
+// newEntry turns a written address — a local path or scp syntax — into an
+// entry, with a name if one was not given.
+func newEntry(file, name, bin string) (Entry, error) {
+	addr, err := todomd.ParseAddress(file)
+	if err != nil {
+		return Entry{}, err
+	}
+	e := Entry{Name: strings.TrimSpace(name), File: addr.String(), Host: addr.Host, Bin: bin}
+	if e.Name == "" {
+		e.Name = NameFor(addr)
+	}
+	return e, nil
+}
+
 // FromFiles builds a registry from paths given on the command line. The list
 // is fixed for the lifetime of the process.
 func FromFiles(files []string) (*Registry, error) {
 	r := &Registry{source: FromFlags}
 	for _, f := range files {
-		abs, err := filepath.Abs(f)
+		e, err := newEntry(f, "", "")
 		if err != nil {
 			return nil, err
 		}
-		r.append(Entry{Name: NameFor(abs), File: abs})
+		r.append(e)
 	}
 	if len(r.entries) == 0 {
 		return nil, errors.New("no files given")
@@ -109,15 +144,11 @@ func Load(path string) (*Registry, error) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	for _, entry := range cfg.Projects {
-		abs, err := filepath.Abs(entry.File)
+		e, err := newEntry(entry.File, entry.Name, entry.Todomd)
 		if err != nil {
 			return nil, err
 		}
-		name := entry.Name
-		if name == "" {
-			name = NameFor(abs)
-		}
-		r.append(Entry{Name: name, File: abs})
+		r.append(e)
 	}
 	r.saved = true
 	return r, nil
@@ -128,7 +159,7 @@ func Load(path string) (*Registry, error) {
 // project still just works. The config file is written the first time the
 // list is actually changed.
 func (r *Registry) Seed(file string) error {
-	abs, err := filepath.Abs(file)
+	e, err := newEntry(file, "", "")
 	if err != nil {
 		return err
 	}
@@ -137,7 +168,7 @@ func (r *Registry) Seed(file string) error {
 	if len(r.entries) > 0 {
 		return nil
 	}
-	r.append(Entry{Name: NameFor(abs), File: abs})
+	r.append(e)
 	r.saved = false
 	return nil
 }
@@ -208,39 +239,40 @@ func (r *Registry) Configurable() bool { return r.source == FromConfig }
 // Path returns the config file backing this registry ("" for a flag list).
 func (r *Registry) Path() string { return r.path }
 
-// Add puts a file on the list and saves it. The file must already exist —
-// creating one is the caller's job (it needs todomd).
-func (r *Registry) Add(file, name string) (Entry, error) {
+// Add puts a file on the list and saves it. A local file must already exist —
+// creating one is the caller's job (it needs todomd). A remote one is taken on
+// trust here; the caller verifies it over ssh, where a stat would be a round
+// trip and the error worth reporting is todomd's, not os.Stat's.
+func (r *Registry) Add(file, name, bin string) (Entry, error) {
 	if !r.Configurable() {
 		return Entry{}, ErrNotConfigurable
 	}
-	abs, err := filepath.Abs(strings.TrimSpace(file))
+	entry, err := newEntry(file, name, bin)
 	if err != nil {
 		return Entry{}, err
 	}
-	info, err := os.Stat(abs)
-	if err != nil {
-		return Entry{}, fmt.Errorf("%s: %w", abs, err)
-	}
-	if info.IsDir() {
-		return Entry{}, fmt.Errorf("%s is a directory, not a todo file", abs)
-	}
-	if !strings.EqualFold(filepath.Ext(abs), ".md") {
-		return Entry{}, fmt.Errorf("%s is not a markdown file", abs)
+	if !entry.Remote() {
+		info, err := os.Stat(entry.File)
+		if err != nil {
+			return Entry{}, fmt.Errorf("%s: %w", entry.File, err)
+		}
+		if info.IsDir() {
+			return Entry{}, fmt.Errorf("%s is a directory, not a todo file", entry.File)
+		}
+		if !strings.EqualFold(filepath.Ext(entry.File), ".md") {
+			return Entry{}, fmt.Errorf("%s is not a markdown file", entry.File)
+		}
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, e := range r.entries {
-		if e.File == abs {
+		if e.File == entry.File {
 			return e, nil // already listed: adding twice is not an error
 		}
 	}
-	if strings.TrimSpace(name) == "" {
-		name = NameFor(abs)
-	}
 	before := len(r.entries)
-	r.append(Entry{Name: strings.TrimSpace(name), File: abs})
+	r.append(entry)
 	if len(r.entries) == before {
 		return Entry{}, errors.New("could not add project")
 	}
@@ -318,7 +350,7 @@ func (r *Registry) save() error {
 	}
 	cfg := config{Projects: []configEntry{}}
 	for _, e := range r.entries {
-		cfg.Projects = append(cfg.Projects, configEntry{Name: e.Name, File: e.File})
+		cfg.Projects = append(cfg.Projects, configEntry{Name: e.Name, File: e.File, Todomd: e.Bin})
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -357,12 +389,16 @@ func Slug(name string) string {
 	return strings.Trim(s, "-")
 }
 
-// NameFor derives a project name from a todo file's path: the directory it
-// sits in, because every one of these files is called TODO.md.
-func NameFor(file string) string {
-	dir := filepath.Base(filepath.Dir(file))
-	if dir == "" || dir == "." || dir == string(filepath.Separator) {
-		return strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+// NameFor derives a project name from an address: the directory the file sits
+// in, because every one of these files is called TODO.md — prefixed with the
+// host when it is remote, so two servers with an /srv/app are told apart.
+func NameFor(addr todomd.Address) string {
+	dir := path.Base(path.Dir(addr.Path))
+	if dir == "" || dir == "." || dir == "/" {
+		dir = strings.TrimSuffix(path.Base(addr.Path), path.Ext(addr.Path))
+	}
+	if addr.Remote() {
+		return addr.Host + ":" + dir
 	}
 	return dir
 }
