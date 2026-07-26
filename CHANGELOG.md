@@ -1,6 +1,14 @@
 # Changelog
 
-## v0.4.0
+## Unreleased
+
+- An app icon: a favicon, and the PNGs iOS and Android want when the board is
+  added to a home screen, plus a web app manifest so it opens standalone
+  rather than in a tab.
+- Form fields no longer make iOS zoom the page. Safari zooms whenever a
+  focused field is under 16px, and the zoom stayed — which threw off
+  drag-and-drop and the bottom sheets afterwards; every field now stays 16px
+  on phones and keeps its compact size on a desktop.
 
 - **Projects over ssh.** A project can name a file on another machine —
   `todomd-web deploy@web1:/srv/app/TODO.md`, or the same scp syntax in the

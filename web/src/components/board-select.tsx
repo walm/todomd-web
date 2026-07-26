@@ -39,7 +39,10 @@ export function BoardSelect({
           onChange(e.target.value)
         }}
         className={cn(
-          'h-7 appearance-none rounded-md border bg-background py-0 pr-6 pl-2 text-xs font-medium',
+          // 16px on phones: anything smaller and iOS zooms the page when the
+          // picker opens, which leaves the board scrolled somewhere else.
+          'h-9 appearance-none rounded-md border bg-background py-0 pr-6 pl-2 text-base font-medium',
+          'md:h-7 md:text-xs',
           'transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
           'disabled:opacity-50',
         )}

@@ -78,7 +78,7 @@ export function AppHeader({
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Filter"
             aria-label="Filter tasks"
-            className="h-8 pl-7 text-sm"
+            className="h-8 pl-7 text-base md:text-sm"
           />
           {query && (
             <Button

@@ -77,7 +77,7 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description — markdown, optional"
           aria-label="Description"
-          className="min-h-24 font-mono text-[0.8rem]"
+          className="min-h-24 font-mono text-base md:text-[0.8rem]"
         />
         <div className="flex flex-wrap items-center gap-2">
           <BoardSelect value={target} boards={boards} onChange={setTarget} />
@@ -86,14 +86,14 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
             onChange={(e) => setTags(e.target.value)}
             placeholder="tags"
             aria-label="Tags"
-            className="h-8 w-auto min-w-32 grow text-sm"
+            className="h-8 w-auto min-w-32 grow text-base md:text-sm"
           />
           <Input
             type="date"
             value={due}
             onChange={(e) => setDue(e.target.value)}
             aria-label="Due date"
-            className="h-8 w-auto shrink-0 text-sm"
+            className="h-8 w-auto shrink-0 text-base md:text-sm"
           />
         </div>
         <div className="flex justify-end gap-2">
