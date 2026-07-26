@@ -61,7 +61,9 @@ export function AppHeader({
   return (
     <header className="sticky top-0 z-20 border-b bg-background/85 backdrop-blur-sm">
       <div className="flex items-center gap-2 px-3 py-2">
-        <div className="min-w-0">
+        {/* A short project name takes only what it needs; a long one is capped
+            so the filter keeps a usable width on a phone. */}
+        <div className="min-w-0 shrink">
           {project}
           {dir && (
             <p className="ml-1.5 hidden truncate text-xs text-muted-foreground sm:block" title={file}>
@@ -70,7 +72,9 @@ export function AppHeader({
           )}
         </div>
 
-        <div className="relative ml-auto w-32 shrink sm:w-64">
+        {/* The filter takes whatever the header has left, which on a phone is
+            most of it; from sm up it settles at a fixed width. */}
+        <div className="relative min-w-0 grow basis-0 sm:ml-auto sm:w-64 sm:grow-0 sm:basis-auto">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={search}
