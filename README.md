@@ -1,4 +1,8 @@
-<h1 align="center">todomd-web</h1>
+<p align="center">
+  <img src="docs/logo.png" alt="TodoMD-Web logo" width="160">
+</p>
+
+<h1 align="center">TodoMD-Web</h1>
 
 <p align="center">
   A Kanban web UI for <a href="https://github.com/walm/todomd">todomd</a> —

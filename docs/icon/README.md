@@ -4,8 +4,9 @@
 its checklist swapped for a board, one card carrying the green outline the UI
 uses for "an agent touched this".
 
-The PNGs beside it — `apple-touch-icon.png` (iOS home screen) and
-`icon-192.png` / `icon-512.png` (web app manifest) — are generated from it:
+The PNGs — `apple-touch-icon.png` (iOS home screen), `icon-192.png` /
+`icon-512.png` (web app manifest) and `docs/logo.png` (the README header) —
+are generated from it:
 
 ```sh
 sh docs/icon/make.sh

@@ -20,10 +20,11 @@ trap 'rm -rf "$work"; agent-browser close >/dev/null 2>&1 || true' EXIT INT TERM
 } >"$work/icon.html"
 
 agent-browser open >/dev/null
-for size in 180 192 512; do
+for size in 180 192 512 logo; do
   case $size in
-    180) out="$repo/web/public/apple-touch-icon.png" ;;   # iOS home screen
-    *)   out="$repo/web/public/icon-$size.png" ;;         # web app manifest
+    180)  out="$repo/web/public/apple-touch-icon.png" ;;  # iOS home screen
+    logo) out="$repo/docs/logo.png"; size=512 ;;          # the README header
+    *)    out="$repo/web/public/icon-$size.png" ;;        # web app manifest
   esac
   agent-browser set viewport "$size" "$size" >/dev/null
   agent-browser open "file://$work/icon.html" >/dev/null
