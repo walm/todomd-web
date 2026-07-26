@@ -9,9 +9,9 @@ sh docs/demo/record.sh              # both themes
 sh docs/demo/record.sh light        # or just one
 ```
 
-That builds the current binary, seeds a scratch `TODO.md`, serves it on
-`127.0.0.1:7999`, drives a headless browser through the demo, and renders the
-gifs (860px, 10fps, ~20s): `docs/demo.gif` for dark and
+That builds the current binary, seeds two scratch projects and the config
+file that lists them, serves them on `127.0.0.1:7999`, drives a headless
+browser through the demo, and renders the gifs (820px, 10fps, ~25s): `docs/demo.gif` for dark and
 `docs/demo-light.gif` for light, which the README picks between with
 `prefers-color-scheme`. Each theme gets a fresh board and a fresh state dir.
 Nothing outside `/tmp/todomd-web-demo` and `docs/demo*.gif` is touched.
@@ -21,14 +21,17 @@ The pieces:
 | File | What it does |
 |---|---|
 | `record.sh` | Orchestrates per theme: build → seed → serve → drive → ffmpeg |
-| `seed.sh` | The board the demo shows. Edit this to change the content |
+| `seed.sh` | The two projects the demo shows, and the config listing them |
 | `drive.mjs` | The interactions. Edit this to change what happens |
 | `cursor.js` | Draws the mouse pointer, which the recorder does not |
 
 ## Changing what the demo shows
 
-- **Board content**: `seed.sh` — plain `todomd` commands. It prints the id of
-  the task the driver opens, so keep the last `add_id` line intact.
+- **Board content**: `seed.sh` — plain `todomd` commands over two projects.
+  It prints the id of the task the driver opens, so keep that `add_id` line
+  intact. The list is config-backed on purpose: a command-line list renders
+  the switcher as plain text, which is not what a user with several projects
+  sees.
 - **Interactions**: `drive.mjs` — cards are found by their title text, so
   renaming a task in `seed.sh` means renaming it there too. Keep the pauses
   generous; viewers read slower than scripts click.
@@ -61,6 +64,12 @@ The pieces:
 6. **The recorder draws no mouse pointer.** `cursor.js` renders one from real
    pointer events (capture phase, so a drag library that stops propagation
    cannot blind it). Without it the drag looks like cards moving by themselves.
-7. **Dates in the demo are relative** (`Wed`, `Aug 1`), so the due badges look
+7. **Nothing waits forever.** The webm settle loop, the port wait and the
+   server-start wait are all bounded: a driver that exits without recording
+   used to leave `record.sh` spinning with nothing on screen to say why.
+8. **Run it in the foreground.** Driving agent-browser from a detached
+   background shell produced no video at all, repeatedly, while the identical
+   command in the foreground worked every time.
+9. **Dates in the demo are relative** (`Wed`, `Aug 1`), so the due badges look
    different depending on when you record. Adjust the `--due` values in
    `seed.sh` if they start reading as overdue.

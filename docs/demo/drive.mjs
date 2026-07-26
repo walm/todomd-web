@@ -17,6 +17,7 @@ const arg = (name, fallback) => {
 
 const url = arg('url', 'http://127.0.0.1:7999')
 const file = arg('file')
+const other = arg('other')
 const task = arg('task')
 const video = arg('video', 'demo.webm')
 const theme = arg('theme', 'dark')
@@ -34,6 +35,9 @@ const batch = (commands) =>
     encoding: 'utf8',
   })
 const todomd = (...args) => execFileSync('todomd', ['--file', file, ...args], { stdio: 'ignore' })
+/** The same, in the *other* project — the one the switcher shows unread. */
+const todomdOther = (...args) =>
+  execFileSync('todomd', ['--file', other, ...args], { stdio: 'ignore' })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** Runs JS in the page; agent-browser prints the result as JSON. */
@@ -48,6 +52,16 @@ const cardPoint = (title) =>
     if (!el) throw new Error('no card: ' + ${JSON.stringify(title)})
     const r = el.getBoundingClientRect()
     return [Math.round(r.x + r.width / 2), Math.round(r.y + 24)]
+  })()`)
+
+/** Centre of the row for a project in the switcher. */
+const projectRowPoint = (name) =>
+  evaluate(`(() => {
+    const row = [...document.querySelectorAll('li button')]
+      .find((b) => b.textContent.includes(${JSON.stringify(name)}))
+    if (!row) throw new Error('no project row: ' + ${JSON.stringify(name)})
+    const r = row.getBoundingClientRect()
+    return [Math.round(r.x + 120), Math.round(r.y + r.height / 2)]
   })()`)
 
 const controlPoint = (name) =>
@@ -144,8 +158,8 @@ writeFileSync(trimFile, String(Math.max(0, (Date.now() - started) / 1000 - 0.5))
 
 // 1. Open the task an agent has been working on — markdown, highlighted code
 //    and the agent's comment.
-await click(cardPoint('Rewrite the parser'), { pause: 1000 })
-await wait(2000)
+await click(cardPoint('Rewrite the parser'), { pause: 900 })
+await wait(1700)
 
 // 2. Reply to it. The comment box already holds focus.
 ab('keyboard', 'type', 'Nice — merging this after the release.')
@@ -159,16 +173,26 @@ await wait(1100)
 await drag(cardPoint('Ship the web UI'), cardPoint('Rewrite the parser'))
 await wait(900)
 
-// 4. Meanwhile an agent works the same file through the CLI…
+// 4. Meanwhile an agent works through the CLI — in this project…
 todomd('add', 'Add a --read-only mode', '--board', 'Backlog', '--tag', 'cli')
 todomd('comment', task, '--author', 'ai', 'Pushed the fix — the round-trip test covers it now.')
+// …and in another one, which is the thing the switcher is for.
+todomdOther('add', 'Order the replacement latch', '--board', 'Backlog', '--tag', 'outdoor')
 
 // …and its work turns up on the board, badged unread.
-await click(controlPoint('Reload from disk'), { pause: 2000 })
-await wait(2400)
+await click(controlPoint('Reload from disk'), { pause: 1400 })
+await wait(1400)
+
+// 5. The other project carries its own unread count, without opening it.
+await click(controlPoint('Switch project'), { pause: 1000 })
+await wait(1400)
+
+// 6. Switch to it: a different file, same board.
+await click(await projectRowPoint('house'), { pause: 1200 })
+await wait(1500)
 
 glide([WIDTH / 2, HEIGHT - 24], { steps: 10 })
-await wait(1200)
+await wait(1000)
 
 ab('record', 'stop')
 // The video is finalised when the recording context closes; closing the

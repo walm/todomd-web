@@ -1,30 +1,38 @@
 #!/bin/sh
-# Builds the board the demo records against. Deterministic on purpose: the
-# gif should look the same every time it is re-recorded, apart from task ids.
+# Builds the two projects the demo records against, and the config file that
+# lists them — so the recording shows a real project switcher, not a fixed
+# command-line list. Deterministic on purpose: the gif should look the same
+# every time it is re-recorded, apart from task ids.
+#
 # Prints the id of the task the driver opens.
 #
-#   sh seed.sh /path/to/TODO.md
+#   sh seed.sh /path/to/workdir
 set -eu
-file="$1"
-rm -f "$file"
+work="$1"
+main="$work/todomd-web/TODO.md"
+house="$work/house/TODO.md"
 
-td() { todomd --file "$file" "$@" >/dev/null; }
+rm -rf "$work/todomd-web" "$work/house" "$work/config"
+mkdir -p "$work/todomd-web" "$work/house" "$work/config/todomd-web"
+
+td() { todomd --file "$1" "$@" >/dev/null 2>&1 || true; }
 # `add --json` prints the created task; its id is the first "id" field.
-add_id() { todomd --file "$file" add "$@" --json | sed -n 's/.*"id": "\([^"]*\)".*/\1/p' | head -1; }
+add_id() { todomd --file "$1" add "$2" --json | sed -n 's/.*"id": "\([^"]*\)".*/\1/p' | head -1; }
 
-td init --title "todomd-web"
+todomd --file "$main" init --title "todomd-web" >/dev/null
+todomd --file "$house" init --title "house" >/dev/null
 
-td add "Ship the web UI" --board Backlog --tag ui --tag core --due 2026-08-01 \
+todomd --file "$main" add "Ship the web UI" --board Backlog --tag ui --tag core --due 2026-08-01 \
   --desc 'Kanban board, task detail, comments — all over the same `TODO.md`.
 
 - [x] board and columns
 - [x] task detail
-- [ ] drag and drop'
-td add "Write the README" --board Backlog --tag docs
-td add "Support tag filters" --board Backlog --tag ui --due 2026-08-14
-td add "Publish a Homebrew tap" --board Backlog --tag release
+- [ ] drag and drop' >/dev/null
+todomd --file "$main" add "Write the README" --board Backlog --tag docs >/dev/null
+todomd --file "$main" add "Support tag filters" --board Backlog --tag ui --due 2026-08-14 >/dev/null
 
-parser=$(add_id "Rewrite the parser" --board "In Progress" --tag core --due 2026-07-29 \
+parser=$(add_id "$main" "Rewrite the parser")
+todomd --file "$main" update "$parser" --tag core --due 2026-07-29 \
   --desc 'Fenced code keeps its colours:
 
 ```go
@@ -35,12 +43,26 @@ func Parse(data []byte) (*task.File, error) {
     }
     return parse(text)
 }
-```')
-
-td add "Design the HTTP API" --board Done --tag core
-
+```' >/dev/null
+todomd --file "$main" move "$parser" --to "In Progress" >/dev/null
 # The agent's half of the conversation, so the demo opens on a real thread.
-td comment "$parser" --author ai \
-  "Hand-rolled the parser instead of goldmark — round-trips exactly, so hand edits survive."
+todomd --file "$main" comment "$parser" --author ai \
+  "Hand-rolled the parser instead of goldmark — round-trips exactly, so hand edits survive." >/dev/null
+
+todomd --file "$main" add "Design the HTTP API" --board Done --tag core >/dev/null
+
+# The second project: quiet to begin with, so the unread count that appears on
+# it later is unmistakably the agent's doing.
+todomd --file "$house" add "Book the boiler service" --board Backlog --tag admin >/dev/null
+todomd --file "$house" add "Fix the gate latch" --board "In Progress" --tag outdoor >/dev/null
+
+cat >"$work/config/todomd-web/config.json" <<JSON
+{
+  "projects": [
+    { "file": "$main" },
+    { "file": "$house" }
+  ]
+}
+JSON
 
 echo "$parser"

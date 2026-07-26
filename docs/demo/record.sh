@@ -37,41 +37,63 @@ record_theme() {
   theme=$1
   out=$2
 
-  # Fresh board *and* fresh state dir per theme: change cursors left over from
-  # the previous run would badge half the board before the demo starts.
-  rm -rf "$work/state" "$work/TODO.md"
+  # Fresh boards *and* a fresh state dir per theme: change cursors left over
+  # from the previous run would badge half the board before the demo starts.
+  rm -rf "$work/state"
   mkdir -p "$work/state"
   export XDG_STATE_HOME="$work/state"
+  # The project list comes from a config file, not flags, so the recording
+  # shows the switcher a user actually gets — including Add.
+  export XDG_CONFIG_HOME="$work/config"
 
-  task=$(sh "$here/seed.sh" "$work/TODO.md")
+  task=$(sh "$here/seed.sh" "$work")
 
-  "$work/bin/todomd-web" --file "$work/TODO.md" --port "$port" >"$work/server.log" 2>&1 &
+  "$work/bin/todomd-web" --port "$port" >"$work/server.log" 2>&1 &
   server=$!
-  until curl -fsS "http://127.0.0.1:$port/api/board" >/dev/null 2>&1; do sleep 0.2; done
+  waited=0
+  until curl -fsS "http://127.0.0.1:$port/api/projects" >/dev/null 2>&1; do
+    if [ "$waited" -ge 50 ]; then
+      echo "the server never came up:" >&2
+      cat "$work/server.log" >&2
+      exit 1
+    fi
+    waited=$((waited + 1))
+    sleep 0.2
+  done
   # …and make sure it is *our* server answering, not a leftover on the same
-  # port serving someone else's file (which silently records the wrong board).
-  serving=$(curl -fsS "http://127.0.0.1:$port/api/config" | sed -n 's/.*"file":"\([^"]*\)".*/\1/p')
-  if [ "$serving" != "$work/TODO.md" ]; then
-    echo "port $port is serving $serving, not $work/TODO.md" >&2
+  # port serving someone else's files (which silently records the wrong board).
+  serving=$(curl -fsS "http://127.0.0.1:$port/api/projects" |
+    grep -o '"file":"[^"]*"' | head -1 | cut -d'"' -f4)
+  if [ "$serving" != "$work/todomd-web/TODO.md" ]; then
+    echo "port $port is serving $serving, not $work/todomd-web/TODO.md" >&2
     exit 1
   fi
 
   rm -f "$work/demo.webm"
   node "$here/drive.mjs" \
     --url "http://127.0.0.1:$port/" \
-    --file "$work/TODO.md" \
+    --file "$work/todomd-web/TODO.md" \
+    --other "$work/house/TODO.md" \
     --task "$task" \
     --theme "$theme" \
     --trim "$work/trim.txt" \
     --video "$work/demo.webm"
 
   # Wait for the webm to stop growing: the recorder finalises it asynchronously
-  # and converting a half-written file yields a two-frame gif.
+  # and converting a half-written file yields a two-frame gif. Bounded, because
+  # a driver that exits without recording anything would otherwise spin here
+  # forever with nothing on screen to say so.
   last=0
+  waited=0
   while :; do
     size=$(wc -c <"$work/demo.webm" 2>/dev/null || echo 0)
     [ "$size" -gt 0 ] && [ "$size" -eq "$last" ] && break
+    if [ "$waited" -ge 60 ]; then
+      echo "no video appeared at $work/demo.webm after 30s — did the driver record anything?" >&2
+      exit 1
+    fi
     last=$size
+    waited=$((waited + 1))
     sleep 0.5
   done
 
@@ -87,19 +109,27 @@ record_theme() {
   # wrong theme, then the reload that fixes it); cut exactly that much.
   trim=$(cat "$work/trim.txt")
 
-  # 860px wide at 10fps: readable in a README at well under a megabyte;
+  # 820px wide at 10fps: readable in a README at well under a megabyte;
   # palettegen/paletteuse avoid the smeared colours of a naive conversion.
   # Trimming happens in the filter chain: the recorder's webm has loose
   # timestamps, and input seeking (-ss before -i) writes an empty gif.
   ffmpeg -loglevel error -y -i "$work/demo.webm" \
-    -vf "trim=start=$trim,setpts=PTS-STARTPTS,fps=10,scale=860:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" \
+    -vf "trim=start=$trim,setpts=PTS-STARTPTS,fps=10,scale=820:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5" \
     -loop 0 "$out"
 
   kill "$server" 2>/dev/null || true
   wait "$server" 2>/dev/null || true
   server=""
   # The port needs a moment before the next theme's server can claim it.
-  until ! curl -fsS "http://127.0.0.1:$port/api/config" >/dev/null 2>&1; do sleep 0.2; done
+  waited=0
+  while curl -fsS "http://127.0.0.1:$port/api/config" >/dev/null 2>&1; do
+    if [ "$waited" -ge 50 ]; then
+      echo "something is still serving port $port" >&2
+      exit 1
+    fi
+    waited=$((waited + 1))
+    sleep 0.2
+  done
 
   echo "wrote $out ($(du -h "$out" | cut -f1))"
 }
