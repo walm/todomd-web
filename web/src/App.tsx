@@ -5,6 +5,7 @@ import { useBoard, useConfig, useMoveTask, useProjects } from '@/api/hooks'
 import type { Task } from '@/api/types'
 import { AppHeader } from '@/components/app-header'
 import { BoardColumn } from '@/components/board-column'
+import { BoardList } from '@/components/board-list'
 import { BoardDnd } from '@/components/board-dnd'
 import { ProjectSwitcher } from '@/components/project-switcher'
 import { TaskCreate } from '@/components/task-create'
@@ -13,6 +14,7 @@ import { UpdateBanner } from '@/components/update-banner'
 import { filterBoards } from '@/lib/filter'
 import { readLocation, writeLocation } from '@/lib/location'
 import { useUnread } from '@/hooks/use-unread'
+import { useView } from '@/hooks/use-view'
 import { Button } from '@/components/ui/button'
 
 const LAST_PROJECT = 'todomd-web:project'
@@ -26,6 +28,7 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
+  const { view, toggle: toggleView } = useView()
 
   useEffect(() => {
     const onPop = () => setRoute(readLocation())
@@ -102,6 +105,11 @@ export default function App() {
   const boards = useMemo(() => board.data?.boards ?? [], [board.data])
   const boardNames = boards.map((b) => b.name)
   const filtered = useMemo(() => filterBoards(boards, query), [boards, query])
+  // Pre-filter counts, so a filtered view can still say what it is hiding.
+  const totals = useMemo(
+    () => Object.fromEntries(boards.map((b) => [b.name, b.tasks.length])),
+    [boards],
+  )
   const task = boards.flatMap((b) => b.tasks).find((t) => t.id === route.task) ?? null
 
   // A deep link to a task that no longer exists shouldn't leave a dead modal.
@@ -153,6 +161,8 @@ export default function App() {
         query={query}
         onQueryChange={setQuery}
         canEdit={!!currentId}
+        view={view}
+        onToggleView={toggleView}
         onAdd={() => setCreatingIn(boardNames[0] ?? 'Backlog')}
         onRefresh={() => void qc.invalidateQueries()}
         refreshing={board.isFetching || projects.isFetching}
@@ -194,18 +204,28 @@ export default function App() {
             hold regardless of what the filter hides. */}
         {board.isSuccess && (
           <BoardDnd boards={boards} onMove={(args) => move.mutate(args)}>
-            <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-3 pb-4 md:snap-none">
-              {filtered.map((column, i) => (
-                <BoardColumn
-                  key={column.name}
-                  board={column}
-                  total={boards[i].tasks.length}
-                  unreadOf={unreadOf}
-                  onOpen={openTask}
-                  onAdd={setCreatingIn}
-                />
-              ))}
-            </div>
+            {view === 'list' ? (
+              <BoardList
+                boards={filtered}
+                totals={totals}
+                unreadOf={unreadOf}
+                onOpen={openTask}
+                onAdd={setCreatingIn}
+              />
+            ) : (
+              <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-3 pb-4 md:snap-none">
+                {filtered.map((column, i) => (
+                  <BoardColumn
+                    key={column.name}
+                    board={column}
+                    total={boards[i].tasks.length}
+                    unreadOf={unreadOf}
+                    onOpen={openTask}
+                    onAdd={setCreatingIn}
+                  />
+                ))}
+              </div>
+            )}
           </BoardDnd>
         )}
       </main>
