@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.5.0
 
 - A **list view** (`v`, or the toggle in the header): every task in one
   column, grouped under its board, with sticky headings. A kanban board is
