@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.0
 
 - **Projects over ssh.** A project can name a file on another machine —
   `todomd-web deploy@web1:/srv/app/TODO.md`, or the same scp syntax in the
