@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.6.0
 
 - **Priority**, following todomd v0.4.0: `high`, `normal` or `low`, marked on
   cards and rows as the TUI marks them and editable from both forms. `!high`
