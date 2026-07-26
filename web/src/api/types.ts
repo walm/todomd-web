@@ -7,11 +7,15 @@ export interface Comment {
   text: string
 }
 
+/** todomd always sends one, so nothing here infers the default. */
+export type Priority = 'high' | 'normal' | 'low'
+
 export interface Task {
   id: string
   board: string
   title: string
   tags: string[]
+  priority: Priority
   due: string | null
   description: string
   comments: Comment[]
@@ -121,6 +125,7 @@ export interface NewTask {
   title: string
   description?: string
   tags?: string[]
+  priority?: Priority
   due?: string | null
 }
 
@@ -129,5 +134,7 @@ export interface TaskPatch {
   title?: string
   description?: string
   tags?: string[]
+  /** "normal" is the cleared state; there is nothing else to clear. */
+  priority?: Priority
   due?: string | null
 }

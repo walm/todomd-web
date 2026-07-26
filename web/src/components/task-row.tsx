@@ -1,5 +1,6 @@
 import { CalendarDays, MessageSquare } from 'lucide-react'
 import type { TaskCardProps } from '@/components/task-card'
+import { PriorityMark } from '@/components/priority-mark'
 import { Badge } from '@/components/ui/badge'
 import { dueUrgency, formatDue } from '@/lib/due'
 import { cn } from '@/lib/utils'
@@ -41,6 +42,7 @@ export function TaskRow({ task, unread, dragging, className, ...props }: TaskCar
       <p className="min-w-0 grow truncate text-sm font-medium">{task.title}</p>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        <PriorityMark priority={task.priority} />
         {task.tags.slice(0, 2).map((tag) => (
           <Badge key={tag} variant="secondary" className="hidden font-normal sm:inline-flex">
             {tag}

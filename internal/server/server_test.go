@@ -339,3 +339,47 @@ func mustJSON(t *testing.T, v any) string {
 	}
 	return string(data)
 }
+
+func TestPriority(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	// Always present, defaulting to normal — an agent (or this UI) never has
+	// to infer it.
+	var plain taskResponse
+	do(t, srv, "POST", "/api/projects/solo/tasks", `{"title":"ordinary"}`, &plain)
+	if plain.Task.Priority != "normal" {
+		t.Errorf("default priority = %q", plain.Task.Priority)
+	}
+
+	var urgent taskResponse
+	code := do(t, srv, "POST", "/api/projects/solo/tasks",
+		`{"title":"urgent","priority":"high"}`, &urgent)
+	if code != http.StatusCreated || urgent.Task.Priority != "high" {
+		t.Fatalf("create = %d %+v", code, urgent.Task)
+	}
+
+	// Updating it, and back down again.
+	var updated taskResponse
+	if code := do(t, srv, "PATCH", "/api/projects/solo/tasks/"+urgent.Task.ID,
+		`{"priority":"low"}`, &updated); code != http.StatusOK {
+		t.Fatalf("update status = %d", code)
+	}
+	if updated.Task.Priority != "low" || updated.Task.Title != "urgent" {
+		t.Errorf("update = %+v", updated.Task)
+	}
+	if code := do(t, srv, "PATCH", "/api/projects/solo/tasks/"+urgent.Task.ID,
+		`{"priority":"normal"}`, &updated); code != http.StatusOK || updated.Task.Priority != "normal" {
+		t.Errorf("back to normal = %d %+v", code, updated.Task)
+	}
+
+	// todomd owns the vocabulary; a wrong word is a client error carrying its
+	// message, not a silent normal.
+	var body errorResponse
+	if code := do(t, srv, "PATCH", "/api/projects/solo/tasks/"+urgent.Task.ID,
+		`{"priority":"urgent"}`, &body); code != http.StatusBadRequest {
+		t.Errorf("bad priority = %d (%q)", code, body.Error)
+	}
+	if !strings.Contains(body.Error, "priority") {
+		t.Errorf("error should name the field: %q", body.Error)
+	}
+}

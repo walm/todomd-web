@@ -1,5 +1,6 @@
 import { MessageSquare, CalendarDays } from 'lucide-react'
 import type { Task } from '@/api/types'
+import { PriorityMark } from '@/components/priority-mark'
 import { Badge } from '@/components/ui/badge'
 import { dueUrgency, formatDue } from '@/lib/due'
 import { cn } from '@/lib/utils'
@@ -44,8 +45,12 @@ export function TaskCard({ task, unread, dragging, className, ...props }: TaskCa
         <p className="grow text-sm leading-snug font-medium wrap-anywhere">{task.title}</p>
       </div>
 
-      {(task.tags.length > 0 || task.due || task.comments.length > 0) && (
+      {(task.tags.length > 0 ||
+        task.due ||
+        task.comments.length > 0 ||
+        task.priority !== 'normal') && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <PriorityMark priority={task.priority} />
           {task.tags.map((tag) => (
             <Badge key={tag} variant="secondary" className="font-normal">
               {tag}

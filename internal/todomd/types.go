@@ -12,12 +12,24 @@ type Comment struct {
 	Text   string `json:"text"`
 }
 
+// Priority is "high", "normal" or "low". todomd always includes it, so
+// nothing here has to infer the default.
+type Priority = string
+
+// Priorities, in the order todomd suggests working them.
+const (
+	PriorityHigh   Priority = "high"
+	PriorityNormal Priority = "normal"
+	PriorityLow    Priority = "low"
+)
+
 // Task mirrors todomd's pinned task JSON schema.
 type Task struct {
 	ID          string    `json:"id"`
 	Board       string    `json:"board"`
 	Title       string    `json:"title"`
 	Tags        []string  `json:"tags"`
+	Priority    Priority  `json:"priority"`
 	Due         *string   `json:"due"`
 	Description string    `json:"description"`
 	Comments    []Comment `json:"comments"`
@@ -83,6 +95,7 @@ type NewTask struct {
 	Title       string
 	Description string
 	Tags        []string
+	Priority    Priority // "" leaves it at todomd's default, normal
 	Due         string
 }
 
@@ -93,10 +106,12 @@ type Update struct {
 	Title       *string
 	Description *string
 	Tags        *[]string
+	Priority    *Priority
 	Due         *string
 }
 
 // IsEmpty reports whether the update would change nothing.
 func (u Update) IsEmpty() bool {
-	return u.Title == nil && u.Description == nil && u.Tags == nil && u.Due == nil
+	return u.Title == nil && u.Description == nil && u.Tags == nil &&
+		u.Priority == nil && u.Due == nil
 }

@@ -84,6 +84,14 @@ todomd-web ~/src/todomd/TODO.md ~/src/todomd-web/TODO.md ~/notes/house
 | `--open` | off | Open the board in your browser |
 | `--dev` | — | Proxy the UI to a Vite dev server, e.g. `http://127.0.0.1:5173` |
 
+Tasks carry todomd's **priority** — `high`, `normal` (the default) or `low`.
+High and low are marked on cards and rows the way the TUI marks them, and
+both forms have a picker. Type `!high` (or `priority:low`) in the filter to
+see one priority only; a bare `high` still searches text, so a task called
+"High contrast" is still findable. Priority needs **todomd v0.4.0 or newer**
+on every machine that touches the file — older versions cannot parse the
+token it writes.
+
 On the board: click a card to open it, `n` for a new task, `/` to filter,
 `r` to reload, `p` to switch project (`1`–`9` jump straight to one), and `v`
 to swap between the board and a **list view** — everything in one column,

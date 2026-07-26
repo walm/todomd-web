@@ -207,6 +207,9 @@ func (c *Client) Add(ctx context.Context, t NewTask) (*Task, error) {
 	for _, tag := range t.Tags {
 		args = append(args, "--tag", tag)
 	}
+	if t.Priority != "" {
+		args = append(args, "--priority", t.Priority)
+	}
 	if t.Due != "" {
 		args = append(args, "--due", t.Due)
 	}
@@ -232,6 +235,10 @@ func (c *Client) Update(ctx context.Context, id string, u Update) (*Task, error)
 		for _, tag := range *u.Tags {
 			args = append(args, "--tag", tag)
 		}
+	}
+	if u.Priority != nil {
+		// There is no --clear-priority: normal *is* the cleared state.
+		args = append(args, "--priority", *u.Priority)
 	}
 	if u.Due != nil {
 		if *u.Due == "" {
