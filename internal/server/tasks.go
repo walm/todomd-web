@@ -39,6 +39,7 @@ type createRequest struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
 	Tags        []string `json:"tags"`
+	Priority    string   `json:"priority"`
 	Due         *string  `json:"due"`
 }
 
@@ -57,6 +58,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, entry 
 		Title:       req.Title,
 		Description: req.Description,
 		Tags:        req.Tags,
+		Priority:    req.Priority,
 	}
 	if req.Due != nil {
 		t.Due = *req.Due
@@ -104,6 +106,20 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request, entry 
 				}
 			}
 			u.Tags = &v
+		case "priority":
+			// todomd validates the value and says what it accepts; there is
+			// no "clear", because normal is the cleared state.
+			var v string
+			if string(val) != "null" {
+				if err := json.Unmarshal(val, &v); err != nil {
+					s.writeError(w, invalid("priority must be a string"))
+					return
+				}
+			}
+			if v == "" {
+				v = todomd.PriorityNormal
+			}
+			u.Priority = &v
 		case "due":
 			v := ""
 			if string(val) != "null" {

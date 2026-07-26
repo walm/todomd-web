@@ -7,6 +7,7 @@ const task = (id: string, board: string): Task => ({
   board,
   title: id,
   tags: [],
+  priority: 'normal',
   due: null,
   description: '',
   comments: [],

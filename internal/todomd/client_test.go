@@ -70,12 +70,24 @@ func TestArgConstruction(t *testing.T) {
 			func(c *Client) error {
 				_, err := c.Add(t.Context(), NewTask{
 					Board: "In Progress", Title: "New task", Description: "desc",
-					Tags: []string{"a", "b"}, Due: "2026-09-01",
+					Tags: []string{"a", "b"}, Priority: PriorityHigh, Due: "2026-09-01",
 				})
 				return err
 			},
 			[]string{"--file", "/tmp/TODO.md", "add", "New task", "--json",
-				"--board", "In Progress", "--desc", "desc", "--tag", "a", "--tag", "b", "--due", "2026-09-01"},
+				"--board", "In Progress", "--desc", "desc", "--tag", "a", "--tag", "b",
+				"--priority", "high", "--due", "2026-09-01"},
+		},
+		{
+			// normal is the cleared state, so there is no --clear-priority to
+			// mirror --clear-due.
+			"update priority back to normal",
+			func(c *Client) error {
+				normal := PriorityNormal
+				_, err := c.Update(t.Context(), "3f2a", Update{Priority: &normal})
+				return err
+			},
+			[]string{"--file", "/tmp/TODO.md", "update", "3f2a", "--json", "--priority", "normal"},
 		},
 		{
 			"add minimal omits empty flags",

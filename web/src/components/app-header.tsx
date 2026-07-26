@@ -88,7 +88,7 @@ export function AppHeader({
             ref={search}
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Filter"
+            placeholder="Filter — try !high"
             aria-label="Filter tasks"
             className="h-8 pl-7 text-base md:text-sm"
           />

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useCreateTask } from '@/api/hooks'
+import type { Priority } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
+import { PrioritySelect } from '@/components/priority-select'
 import { parseTags } from '@/lib/tags'
 
 export interface TaskCreateProps {
@@ -22,6 +24,7 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState('')
+  const [priority, setPriority] = useState<Priority>('normal')
   const [due, setDue] = useState('')
   const create = useCreateTask(project)
 
@@ -31,6 +34,7 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
       setTitle('')
       setDescription('')
       setTags('')
+      setPriority('normal')
       setDue('')
     }
   }, [open, board])
@@ -44,6 +48,7 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
         title: trimmed,
         description,
         tags: parseTags(tags),
+        priority,
         due: due || null,
       },
       { onSuccess: () => onOpenChange(false) },
@@ -88,6 +93,7 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
             aria-label="Tags"
             className="h-8 w-auto min-w-32 grow text-base md:text-sm"
           />
+          <PrioritySelect value={priority} onChange={setPriority} className="w-36 shrink-0" />
           <Input
             type="date"
             value={due}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, Loader2, MessageSquarePlus, Pencil, Trash2 } from 'lucide-react'
-import type { Task } from '@/api/types'
+import type { Priority, Task } from '@/api/types'
 import { useAddComment, useDeleteTask, useMoveTask, useUpdateTask } from '@/api/hooks'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Markdown } from '@/components/markdown-lazy'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
+import { PriorityMark } from '@/components/priority-mark'
+import { PrioritySelect } from '@/components/priority-select'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { dueUrgency, formatDue } from '@/lib/due'
 import { parseTags } from '@/lib/tags'
@@ -67,6 +69,7 @@ export function TaskDetail({
             onChange={(board) => move.mutate({ id: task.id, to: board, pos: 0 })}
             disabled={move.isPending}
           />
+          {!editing && <PriorityMark priority={task.priority} />}
           {task.due && !editing && (
             <span
               className={cn(
@@ -154,7 +157,13 @@ export function TaskDetail({
 interface TaskFieldsProps {
   task: Task
   saving: boolean
-  onSave: (patch: { title: string; description: string; tags: string[]; due: string | null }) => void
+  onSave: (patch: {
+    title: string
+    description: string
+    tags: string[]
+    priority: Priority
+    due: string | null
+  }) => void
   onCancel: () => void
 }
 
@@ -164,6 +173,7 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description)
   const [tags, setTags] = useState(task.tags.join(' '))
+  const [priority, setPriority] = useState<Priority>(task.priority)
   const [due, setDue] = useState(task.due ?? '')
 
   const submit = () =>
@@ -171,6 +181,7 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
       title: title.trim(),
       description,
       tags: parseTags(tags),
+      priority,
       due: due || null,
     })
 
@@ -210,6 +221,7 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
           placeholder="tags, space separated"
           className="w-auto min-w-40 grow"
         />
+        <PrioritySelect value={priority} onChange={setPriority} className="w-36 shrink-0" />
         <Input
           type="date"
           value={due}

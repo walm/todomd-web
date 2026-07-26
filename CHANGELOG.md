@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Priority**, following todomd v0.4.0: `high`, `normal` or `low`, marked on
+  cards and rows as the TUI marks them and editable from both forms. `!high`
+  or `priority:low` in the filter narrows to one priority, while a bare word
+  still searches text — so "high" keeps finding a task called "High
+  contrast". Needs todomd v0.4.0 or newer on every machine that touches the
+  file.
+
 ## v0.5.0
 
 - A **list view** (`v`, or the toggle in the header): every task in one
