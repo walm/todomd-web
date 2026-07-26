@@ -340,8 +340,21 @@ func mustJSON(t *testing.T, v any) string {
 	return string(data)
 }
 
+// requirePriority skips when the installed todomd predates v0.4.0, which is
+// where priority arrived. Failing there would only report that someone's
+// todomd is older than this feature — which the UI already handles by showing
+// whatever todomd tells it.
+func requirePriority(t *testing.T) {
+	t.Helper()
+	out, err := exec.Command(todomd.DefaultBin, "add", "--help").CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "--priority") {
+		t.Skip("this todomd has no --priority (needs v0.4.0 or newer)")
+	}
+}
+
 func TestPriority(t *testing.T) {
 	srv, _ := newTestServer(t)
+	requirePriority(t)
 
 	// Always present, defaulting to normal — an agent (or this UI) never has
 	// to infer it.
