@@ -22,7 +22,7 @@ add_id() { todomd --file "$1" add "$2" --json | sed -n 's/.*"id": "\([^"]*\)".*/
 todomd --file "$main" init --title "todomd-web" >/dev/null
 todomd --file "$house" init --title "house" >/dev/null
 
-todomd --file "$main" add "Ship the web UI" --board Backlog --tag ui --tag core --due 2026-08-01 \
+todomd --file "$main" add "Ship the web UI" --board Backlog --tag ui --tag core --due 2026-08-01 --priority high \
   --desc 'Kanban board, task detail, comments — all over the same `TODO.md`.
 
 - [x] board and columns
@@ -30,9 +30,10 @@ todomd --file "$main" add "Ship the web UI" --board Backlog --tag ui --tag core 
 - [ ] drag and drop' >/dev/null
 todomd --file "$main" add "Write the README" --board Backlog --tag docs >/dev/null
 todomd --file "$main" add "Support tag filters" --board Backlog --tag ui --due 2026-08-14 >/dev/null
+todomd --file "$main" add "Publish a Homebrew tap" --board Backlog --tag release --priority low >/dev/null
 
 parser=$(add_id "$main" "Rewrite the parser")
-todomd --file "$main" update "$parser" --tag core --due 2026-07-29 \
+todomd --file "$main" update "$parser" --tag core --due 2026-07-29 --priority high \
   --desc 'Fenced code keeps its colours:
 
 ```go
@@ -54,7 +55,7 @@ todomd --file "$main" add "Design the HTTP API" --board Done --tag core >/dev/nu
 # The second project: quiet to begin with, so the unread count that appears on
 # it later is unmistakably the agent's doing.
 todomd --file "$house" add "Book the boiler service" --board Backlog --tag admin >/dev/null
-todomd --file "$house" add "Fix the gate latch" --board "In Progress" --tag outdoor >/dev/null
+todomd --file "$house" add "Fix the gate latch" --board "In Progress" --tag outdoor --priority high >/dev/null
 
 cat >"$work/config/todomd-web/config.json" <<JSON
 {

@@ -54,6 +54,15 @@ const cardPoint = (title) =>
     return [Math.round(r.x + r.width / 2), Math.round(r.y + 24)]
   })()`)
 
+/** Centre of a form field with this accessible name. */
+const fieldPoint = (label) =>
+  evaluate(`(() => {
+    const el = document.querySelector('[aria-label=' + JSON.stringify(${JSON.stringify(label)}) + ']')
+    if (!el) throw new Error('no field: ' + ${JSON.stringify(label)})
+    const r = el.getBoundingClientRect()
+    return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]
+  })()`)
+
 /** Centre of the row for a project in the switcher. */
 const projectRowPoint = (name) =>
   evaluate(`(() => {
@@ -159,7 +168,7 @@ writeFileSync(trimFile, String(Math.max(0, (Date.now() - started) / 1000 - 0.5))
 // 1. Open the task an agent has been working on — markdown, highlighted code
 //    and the agent's comment.
 await click(cardPoint('Rewrite the parser'), { pause: 900 })
-await wait(1700)
+await wait(1500)
 
 // 2. Reply to it. The comment box already holds focus.
 ab('keyboard', 'type', 'Nice — merging this after the release.')
@@ -180,14 +189,25 @@ todomd('comment', task, '--author', 'ai', 'Pushed the fix — the round-trip tes
 todomdOther('add', 'Order the replacement latch', '--board', 'Backlog', '--tag', 'outdoor')
 
 // …and its work turns up on the board, badged unread.
-await click(controlPoint('Reload from disk'), { pause: 1400 })
-await wait(1400)
+await click(controlPoint('Reload from disk'), { pause: 1300 })
+await wait(1200)
 
-// 5. The other project carries its own unread count, without opening it.
+// 5. The same board read as a list, which is the shape a phone wants — and
+//    where the priority marks line up in one column.
+await click(controlPoint('Switch to list view'), { pause: 1200 })
+await wait(1600)
+
+// 6. …and narrowed to what is urgent. Switching project clears the filter,
+//    so the next beat starts clean without a keystroke to undo this.
+await click(fieldPoint('Filter tasks'), { pause: 200 })
+ab('keyboard', 'type', '!high')
+await wait(1800)
+
+// 7. The other project carries its own unread count, without opening it.
 await click(controlPoint('Switch project'), { pause: 1000 })
 await wait(1400)
 
-// 6. Switch to it: a different file, same board.
+// 8. Switch to it: a different file, same board.
 await click(await projectRowPoint('house'), { pause: 1200 })
 await wait(1500)
 

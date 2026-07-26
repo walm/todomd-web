@@ -11,7 +11,7 @@ sh docs/demo/record.sh light        # or just one
 
 That builds the current binary, seeds two scratch projects and the config
 file that lists them, serves them on `127.0.0.1:7999`, drives a headless
-browser through the demo, and renders the gifs (820px, 10fps, ~25s): `docs/demo.gif` for dark and
+browser through the demo, and renders the gifs (820px, 10fps, ~30s): `docs/demo.gif` for dark and
 `docs/demo-light.gif` for light, which the README picks between with
 `prefers-color-scheme`. Each theme gets a fresh board and a fresh state dir.
 Nothing outside `/tmp/todomd-web-demo` and `docs/demo*.gif` is touched.
@@ -33,8 +33,10 @@ The pieces:
   the switcher as plain text, which is not what a user with several projects
   sees.
 - **Interactions**: `drive.mjs` — cards are found by their title text, so
-  renaming a task in `seed.sh` means renaming it there too. Keep the pauses
-  generous; viewers read slower than scripts click.
+  renaming a task in `seed.sh` means renaming it there too. Controls are
+  found by their accessible name, so renaming an `aria-label` in the UI means
+  renaming it here. Keep the pauses generous; viewers read slower than
+  scripts click.
 - **Output size/pacing**: the `ffmpeg` line in `record.sh`.
 
 ## Hard-won gotchas — read before debugging
@@ -64,12 +66,15 @@ The pieces:
 6. **The recorder draws no mouse pointer.** `cursor.js` renders one from real
    pointer events (capture phase, so a drag library that stops propagation
    cannot blind it). Without it the drag looks like cards moving by themselves.
-7. **Nothing waits forever.** The webm settle loop, the port wait and the
+7. **Priorities need todomd v0.4.0.** The seed sets them, and an older
+   todomd cannot parse the token it writes — the recording would fail on the
+   first board read.
+8. **Nothing waits forever.** The webm settle loop, the port wait and the
    server-start wait are all bounded: a driver that exits without recording
    used to leave `record.sh` spinning with nothing on screen to say why.
-8. **Run it in the foreground.** Driving agent-browser from a detached
+9. **Run it in the foreground.** Driving agent-browser from a detached
    background shell produced no video at all, repeatedly, while the identical
    command in the foreground worked every time.
-9. **Dates in the demo are relative** (`Wed`, `Aug 1`), so the due badges look
+10. **Dates in the demo are relative** (`Wed`, `Aug 1`), so the due badges look
    different depending on when you record. Adjust the `--due` values in
    `seed.sh` if they start reading as overdue.
