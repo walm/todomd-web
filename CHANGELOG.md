@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.7.0
 
 - **An open board now refreshes itself** — every 10 seconds for a local
   project, 30 for one over ssh — so an agent's work turns up on a screen
