@@ -79,6 +79,7 @@ todomd-web ~/src/todomd/TODO.md ~/src/todomd-web/TODO.md ~/notes/house
 | `-f`, `--file` | the config file, else todomd's discovery | Todo file to serve; repeat it, or list paths as arguments, for several projects |
 | `--config` | `$XDG_CONFIG_HOME/todomd-web/config.json` | Where the project list lives |
 | `--port` | `7337` | Port on localhost |
+| `--poll` | `10s` local, `30s` remote | How often an open board re-reads its file; `0` switches it off |
 | `--author` | `user` | Default author recorded on comments you write |
 | `--todomd` | `todomd` | Path to the todomd binary |
 | `--open` | off | Open the board in your browser |
@@ -197,8 +198,26 @@ network.
 ## 🤝 How it works with agents
 
 The file stays the interface. An agent runs `todomd add`, `todomd comment
---author ai`, `todomd done`; you refresh the browser (or just switch back to
-the tab — it refetches on focus) and see it. Concurrent writes are safe
+--author ai`, `todomd done`, and it turns up on the board on its own: an open
+board re-reads every 10 seconds (30 for a project over ssh), plus whenever the
+window regains focus. The timer stops while the tab is in the background, so a
+board left open on another desktop costs nothing.
+
+Change the interval with `--poll 30s`, or in the config file — globally, or
+per project for a slow link:
+
+```json
+{
+  "poll": "15s",
+  "projects": [
+    { "file": "/Users/you/src/app/TODO.md" },
+    { "file": "deploy@web1:/srv/app/TODO.md", "poll": "1m" }
+  ]
+}
+```
+
+`--poll 0` switches polling off entirely, leaving the focus refetch and the
+refresh button. Nothing watches the filesystem either way. Concurrent writes are safe
 because both processes take todomd's own advisory lock and it replaces the
 file atomically.
 

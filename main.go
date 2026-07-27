@@ -61,6 +61,7 @@ func run() error {
 		open        = flag.Bool("open", false, "open the board in your browser")
 		dev         = flag.String("dev", "", "proxy the UI to a running Vite dev server, e.g. http://127.0.0.1:5173")
 		configPath  = flag.String("config", "", "project list to use (default: $XDG_CONFIG_HOME/todomd-web/config.json)")
+		poll        = flag.String("poll", "", "how often an open board re-reads its file, e.g. 10s or 1m; 0 switches it off (default: 10s local, 30s remote, or the config file)")
 		showVersion = flag.Bool("version", false, "print the version and exit")
 	)
 	flag.Var(&files, "file", "todo markdown file to serve; repeat for several projects (default: the config file, else TODO.md searched upward)")
@@ -70,7 +71,7 @@ func run() error {
 			"Commands:\n  upgrade\tinstall the latest release over this binary\n\nFlags:\n")
 		flag.PrintDefaults()
 	}
-	if err := flag.CommandLine.Parse(flagsFirst(os.Args[1:])); err != nil {
+	if err := flag.CommandLine.Parse(flagsFirst(os.Args[1:], takesValue(flag.CommandLine))); err != nil {
 		return err
 	}
 	// Files may also be given positionally: todomd-web a/TODO.md b/TODO.md
@@ -78,6 +79,17 @@ func run() error {
 	if *showVersion {
 		fmt.Println("todomd-web version " + resolveVersion())
 		return nil
+	}
+
+	// A flag beats anything configured, for this run — and a bad one should
+	// be reported before we go looking for files.
+	var pollOverride *time.Duration
+	if *poll != "" {
+		d, err := project.ParsePoll(*poll)
+		if err != nil {
+			return fmt.Errorf("--poll: %w", err)
+		}
+		pollOverride = &d
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -98,6 +110,7 @@ func run() error {
 		Author:   *author,
 		Version:  resolveVersion(),
 		Assets:   assets,
+		Poll:     pollOverride,
 		Restart:  restart,
 	}).Handler()
 
@@ -137,18 +150,25 @@ func run() error {
 	}
 }
 
-// valueFlags are the flags that take a separate argument. flagsFirst needs to
-// know them to tell "--port 8080" (a flag and its value) from a file path.
-var valueFlags = map[string]bool{
-	"file": true, "f": true, "port": true, "author": true,
-	"todomd": true, "dev": true, "config": true,
+// takesValue reports whether a flag consumes the next argument. It is asked
+// of the live flag set rather than a hand-kept list, because a list would go
+// stale the first time someone adds a flag — as it did when --poll arrived.
+func takesValue(fs *flag.FlagSet) func(string) bool {
+	return func(name string) bool {
+		f := fs.Lookup(name)
+		if f == nil {
+			return false
+		}
+		boolFlag, ok := f.Value.(interface{ IsBoolFlag() bool })
+		return !ok || !boolFlag.IsBoolFlag()
+	}
 }
 
 // flagsFirst moves flags ahead of positional arguments, because Go's flag
 // package stops parsing at the first non-flag argument: without this,
 // `todomd-web a/TODO.md --port 8080` reads --port as a third todo file and
 // fails with a baffling "no TODO.md found".
-func flagsFirst(args []string) []string {
+func flagsFirst(args []string, takesValue func(string) bool) []string {
 	var flags, positional []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -159,7 +179,7 @@ func flagsFirst(args []string) []string {
 		case len(arg) > 1 && strings.HasPrefix(arg, "-"):
 			flags = append(flags, arg)
 			name := strings.TrimLeft(arg, "-")
-			if !strings.Contains(arg, "=") && valueFlags[name] && i+1 < len(args) {
+			if !strings.Contains(arg, "=") && takesValue(name) && i+1 < len(args) {
 				i++
 				flags = append(flags, args[i])
 			}

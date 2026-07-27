@@ -1,9 +1,24 @@
 package main
 
 import (
+	"flag"
 	"slices"
 	"testing"
 )
+
+// realFlags mirrors how run() asks the live flag set which flags take a
+// value, so this test cannot drift from the program.
+func realFlags() func(string) bool {
+	fs := flag.NewFlagSet("todomd-web", flag.ContinueOnError)
+	fs.String("file", "", "")
+	fs.String("f", "", "")
+	fs.String("port", "", "")
+	fs.String("poll", "", "")
+	fs.String("todomd", "", "")
+	fs.Bool("open", false, "")
+	fs.Bool("version", false, "")
+	return takesValue(fs)
+}
 
 func TestFlagsFirst(t *testing.T) {
 	tests := []struct {
@@ -43,11 +58,18 @@ func TestFlagsFirst(t *testing.T) {
 			[]string{"--port", "8080", "--", "-weird-name.md"},
 			[]string{"--port", "8080", "--", "-weird-name.md"},
 		},
+		{
+			// The case that sent --poll's value off as a file path, because a
+			// hand-kept list of value-taking flags had not heard of it.
+			"a flag added later still takes its value",
+			[]string{"a/TODO.md", "--poll", "10s"},
+			[]string{"--poll", "10s", "--", "a/TODO.md"},
+		},
 		{"no arguments", nil, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := flagsFirst(tt.args); !slices.Equal(got, tt.want) {
+			if got := flagsFirst(tt.args, realFlags()); !slices.Equal(got, tt.want) {
 				t.Errorf("flagsFirst(%q) = %q, want %q", tt.args, got, tt.want)
 			}
 		})

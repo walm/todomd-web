@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/todomd"
@@ -27,6 +28,33 @@ import (
 // file, so projects do not share unread state.
 const DefaultCursor = "web"
 
+// How often a board re-reads its file when nothing says otherwise. A local
+// read is a few milliseconds; a remote one is an ssh round trip, so it is
+// asked less often.
+const (
+	DefaultPollLocal  = 10 * time.Second
+	DefaultPollRemote = 30 * time.Second
+)
+
+// pollFor returns how often this project should re-read, in the order a
+// person would expect: the flag they passed this run, then what they wrote
+// against that project, then their configured default, then ours.
+func (s *Server) pollFor(entry project.Entry) time.Duration {
+	switch {
+	case s.poll != nil:
+		return *s.poll
+	case entry.Poll > 0:
+		return entry.Poll
+	}
+	if configured, ok := s.registry.Poll(); ok {
+		return configured
+	}
+	if entry.Remote() {
+		return DefaultPollRemote
+	}
+	return DefaultPollLocal
+}
+
 // Options configures a Server.
 type Options struct {
 	Registry *project.Registry
@@ -35,7 +63,10 @@ type Options struct {
 	Version  string       // todomd-web's own version, surfaced at /api/config
 	Assets   http.Handler // serves the SPA; may be nil in tests
 	Cursor   string       // change cursor name (default DefaultCursor)
-	Logger   *slog.Logger
+	// Poll overrides the refresh interval for every project this run; nil
+	// leaves it to the config file and the defaults below.
+	Poll   *time.Duration
+	Logger *slog.Logger
 	// Restart replaces this process with a freshly started one, so an upgrade
 	// applied from the browser takes effect without a terminal. nil means the
 	// UI is told to restart it by hand.
@@ -50,6 +81,7 @@ type Server struct {
 	ver      string
 	assets   http.Handler
 	cursor   string
+	poll     *time.Duration
 	log      *slog.Logger
 	restart  func() error
 
@@ -72,6 +104,7 @@ func New(opts Options) *Server {
 		ver:      opts.Version,
 		assets:   opts.Assets,
 		cursor:   opts.Cursor,
+		poll:     opts.Poll,
 		log:      opts.Logger,
 		restart:  opts.Restart,
 		clients:  map[string]*todomd.Client{},

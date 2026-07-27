@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/todomd"
@@ -394,5 +395,65 @@ func TestPriority(t *testing.T) {
 	}
 	if !strings.Contains(body.Error, "priority") {
 		t.Errorf("error should name the field: %q", body.Error)
+	}
+}
+
+func TestPollIntervalIsReportedPerProject(t *testing.T) {
+	requireTodomd(t)
+	root := t.TempDir()
+	// One local project and one on "another machine": the remote one is asked
+	// less often, because each read there is an ssh round trip.
+	registry, err := project.FromFiles([]string{
+		initFile(t, root, "here"),
+		"web1:/srv/app/TODO.md",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := serve(t, registry)
+
+	var list projectsResponse
+	do(t, srv, "GET", "/api/projects", "", &list)
+	if len(list.Projects) != 2 {
+		t.Fatalf("projects = %+v", list.Projects)
+	}
+	if list.Projects[0].PollMs != DefaultPollLocal.Milliseconds() {
+		t.Errorf("local poll = %d", list.Projects[0].PollMs)
+	}
+	if list.Projects[1].PollMs != DefaultPollRemote.Milliseconds() {
+		t.Errorf("remote poll = %d", list.Projects[1].PollMs)
+	}
+}
+
+func TestPollFlagOverridesEverything(t *testing.T) {
+	requireTodomd(t)
+	registry, err := project.FromFiles([]string{initFile(t, t.TempDir(), "solo")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name string
+		poll time.Duration
+	}{
+		{"a chosen interval", 5 * time.Second},
+		{"switched off", 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(New(Options{
+				Registry: registry, Version: "test", Poll: &tt.poll,
+			}).Handler())
+			t.Cleanup(srv.Close)
+
+			var list projectsResponse
+			do(t, srv, "GET", "/api/projects", "", &list)
+			if list.Projects[0].PollMs != tt.poll.Milliseconds() {
+				t.Errorf("project poll = %d, want %d", list.Projects[0].PollMs, tt.poll.Milliseconds())
+			}
+			var cfg configResponse
+			do(t, srv, "GET", "/api/config", "", &cfg)
+			if cfg.PollMs != tt.poll.Milliseconds() {
+				t.Errorf("config poll = %d", cfg.PollMs)
+			}
+		})
 	}
 }
