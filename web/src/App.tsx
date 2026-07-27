@@ -48,12 +48,16 @@ export default function App() {
   }, [list, route.project])
   const current = list.find((p) => p.id === currentId)
 
-  const board = useBoard(currentId)
+  // Each project carries its own interval: a file on another machine costs an
+  // ssh round trip, so it is asked less often than one on this disk.
+  const pollMs = current?.pollMs ?? config.data?.pollMs ?? 0
+  const board = useBoard(currentId, pollMs)
   const move = useMoveTask(currentId ?? '')
   const { unreadOf, markRead, markAllRead, renameProject, countFor, count } = useUnread({
     current: currentId,
     projects: list,
     includeOthers: list.length > 1,
+    pollMs,
   })
 
   // Keep the URL and the remembered project in step with what is on screen.

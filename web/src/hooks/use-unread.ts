@@ -60,8 +60,11 @@ function kindOf(event: ChangeEvent): UnreadKind | null {
 }
 
 export interface UnreadOptions {
-  /** The project on screen; its feed is read on every focus. */
+  /** The project on screen; its feed is read on every focus, and on the
+   *  same timer as its board so badges appear with the cards they mark. */
   current: string | undefined
+  /** Refresh interval in ms for the current project, 0 when off. */
+  pollMs?: number
   /** Everything on the list; their feeds are read too, so the switcher can
    *  show which other projects an agent has touched. */
   projects: Project[]
@@ -76,7 +79,7 @@ export interface UnreadOptions {
  * project's cursor, so the marks are kept here — in localStorage — until the
  * card is opened.
  */
-export function useUnread({ current, projects, includeOthers }: UnreadOptions) {
+export function useUnread({ current, projects, includeOthers, pollMs = 0 }: UnreadOptions) {
   const [unread, setUnread] = useState<UnreadState>(load)
   const applied = useRef(new Set<ChangeEvent[]>())
 
@@ -89,6 +92,7 @@ export function useUnread({ current, projects, includeOthers }: UnreadOptions) {
         queryKey: ['changes', p.id],
         queryFn: () => api.changes(p.id),
         refetchOnWindowFocus: p.id === current,
+        refetchInterval: p.id === current && pollMs > 0 ? pollMs : false,
         staleTime: p.id === current ? 2_000 : 30_000,
       })),
   })

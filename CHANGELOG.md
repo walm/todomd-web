@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **An open board now refreshes itself** — every 10 seconds for a local
+  project, 30 for one over ssh — so an agent's work turns up on a screen
+  nobody is touching. Previously it re-read only when the window regained
+  focus, which missed exactly that case. The timer stops while the tab is in
+  the background; set it with `--poll 30s`, or in the config file globally or
+  per project; `--poll 0` switches it off.
+
 ## v0.6.0
 
 - **Priority**, following todomd v0.4.0: `high`, `normal` or `low`, marked on

@@ -34,6 +34,8 @@ export interface BoardResponse {
 }
 
 export interface Config {
+  /** How often an open board re-reads, in ms; 0 when polling is off. */
+  pollMs: number
   author: string
   version: string
   todomdVersion: string
@@ -67,6 +69,9 @@ export interface Project {
   dir: string
   /** Set when the project lives on another machine, reached over ssh. */
   host?: string
+  /** How often this project re-reads itself, in ms; 0 when off. A remote
+   *  project defaults to a longer interval than a local one. */
+  pollMs: number
   /** False when the file has been moved or deleted since it was listed.
    *  Remote projects are taken on trust; they report their errors when
    *  opened. */

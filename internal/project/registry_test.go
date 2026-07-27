@@ -5,7 +5,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/walm/todomd-web/internal/todomd"
 )
@@ -401,5 +403,87 @@ func TestRemoteAndLocalCoexist(t *testing.T) {
 	}
 	if entries[1].ID != "web1-app" {
 		t.Errorf("remote id = %q", entries[1].ID)
+	}
+}
+
+func TestPollFromConfig(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.json")
+	a := touch(t, root, "alpha")
+	if err := os.WriteFile(path, []byte(`{
+	  "poll": "1m",
+	  "projects": [
+	    { "file": "`+a+`" },
+	    { "file": "web1:/srv/app/TODO.md", "poll": "2m" }
+	  ]
+	}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if poll, ok := r.Poll(); !ok || poll != time.Minute {
+		t.Errorf("configured default = %v %v", poll, ok)
+	}
+	entries := r.List()
+	if entries[0].Poll != 0 {
+		t.Errorf("a project without its own interval should say so: %v", entries[0].Poll)
+	}
+	if entries[1].Poll != 2*time.Minute {
+		t.Errorf("per-project interval = %v", entries[1].Poll)
+	}
+
+	// Both survive a save, so editing the list from the UI cannot quietly drop
+	// someone's settings.
+	if _, err := r.Add(touch(t, root, "beta"), "", ""); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if poll, _ := reloaded.Poll(); poll != time.Minute {
+		t.Errorf("default lost on save: %v", poll)
+	}
+	if reloaded.List()[1].Poll != 2*time.Minute {
+		t.Errorf("per-project interval lost on save: %v", reloaded.List()[1].Poll)
+	}
+}
+
+func TestParsePoll(t *testing.T) {
+	for _, tt := range []struct {
+		in      string
+		want    time.Duration
+		wantErr bool
+	}{
+		{"10s", 10 * time.Second, false},
+		{"1m", time.Minute, false},
+		{"0", 0, false},
+		{"off", 0, false},
+		// Each poll is a todomd run — and an ssh round trip for a remote
+		// project — so a sub-second interval is refused rather than obeyed.
+		{"500ms", 0, true},
+		{"1s", 0, true},
+		{"soon", 0, true},
+		{"", 0, true},
+	} {
+		got, err := ParsePoll(tt.in)
+		if (err != nil) != tt.wantErr || got != tt.want {
+			t.Errorf("ParsePoll(%q) = %v, %v", tt.in, got, err)
+		}
+	}
+}
+
+func TestPollErrorsNameTheFile(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.json")
+	if err := os.WriteFile(path, []byte(`{"poll":"nope","projects":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), "poll") {
+		t.Fatalf("err = %v", err)
 	}
 }

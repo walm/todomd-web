@@ -15,6 +15,8 @@ type configResponse struct {
 	// which is when the UI hides its add and remove controls.
 	Configurable bool   `json:"configurable"`
 	ConfigFile   string `json:"configFile"`
+	// PollMs is the default refresh interval in milliseconds, 0 when off.
+	PollMs int64 `json:"pollMs"`
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +27,14 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			version = client.Version(r.Context())
 		}
 	}
+	poll := DefaultPollLocal
+	if entries := s.registry.List(); len(entries) > 0 {
+		poll = s.pollFor(entries[0])
+	} else if s.poll != nil {
+		poll = *s.poll
+	}
 	writeJSON(w, http.StatusOK, configResponse{
+		PollMs:        poll.Milliseconds(),
 		Author:        s.author,
 		Version:       s.ver,
 		TodomdVersion: version,

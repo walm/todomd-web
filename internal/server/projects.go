@@ -24,11 +24,20 @@ type projectJSON struct {
 	// A remote file is taken on trust: checking would be an ssh round trip per
 	// project on every list, and the board reports the real error when opened.
 	Available bool `json:"available"`
+	// PollMs is how often this project re-reads itself, in milliseconds; 0
+	// means the board only refreshes on focus or on request.
+	PollMs int64 `json:"pollMs"`
 }
 
 type projectsResponse struct {
 	Projects     []projectJSON `json:"projects"`
 	Configurable bool          `json:"configurable"`
+}
+
+func (s *Server) describe(entry project.Entry) projectJSON {
+	out := describe(entry)
+	out.PollMs = s.pollFor(entry).Milliseconds()
+	return out
 }
 
 func describe(entry project.Entry) projectJSON {
@@ -55,7 +64,7 @@ func describe(entry project.Entry) projectJSON {
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	out := projectsResponse{Projects: []projectJSON{}, Configurable: s.registry.Configurable()}
 	for _, entry := range s.registry.List() {
-		out.Projects = append(out.Projects, describe(entry))
+		out.Projects = append(out.Projects, s.describe(entry))
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -138,7 +147,7 @@ func (s *Server) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, invalid(err.Error()))
 		return
 	}
-	writeJSON(w, http.StatusCreated, describe(entry))
+	writeJSON(w, http.StatusCreated, s.describe(entry))
 }
 
 type renameProjectRequest struct {
@@ -160,7 +169,7 @@ func (s *Server) handleRenameProject(w http.ResponseWriter, r *http.Request) {
 		// The cached client is keyed by id; drop the old key so it is not
 		// left pointing at a project that no longer answers to that name.
 		s.rekey(id, entry.ID)
-		writeJSON(w, http.StatusOK, describe(entry))
+		writeJSON(w, http.StatusOK, s.describe(entry))
 	case errors.Is(err, project.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{"no such project: " + id})
 	case errors.Is(err, project.ErrNotConfigurable):
@@ -206,7 +215,7 @@ func (s *Server) addRemoteProject(w http.ResponseWriter, r *http.Request, addr t
 		s.writeError(w, invalid(err.Error()))
 		return
 	}
-	writeJSON(w, http.StatusCreated, describe(entry))
+	writeJSON(w, http.StatusCreated, s.describe(entry))
 }
 
 // handleRemoveProject drops a project from the list. The todo file it points

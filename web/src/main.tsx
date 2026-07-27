@@ -5,8 +5,9 @@ import { Toaster } from '@/components/ui/sonner'
 import App from '@/App'
 import './index.css'
 
-// No watcher, no polling: the board is re-read when the window regains focus
-// or the network comes back, which covers every way a human uses this.
+// No file watcher: the board re-reads on focus, on reconnect, and on the
+// interval the server hands it — enough for an agent's work to turn up on a
+// screen nobody is touching, without anything watching the filesystem.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

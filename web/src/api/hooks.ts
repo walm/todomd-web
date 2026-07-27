@@ -9,13 +9,19 @@ export const boardKey = (project: string) => ['board', project] as const
 export const projectsKey = ['projects'] as const
 export const configKey = ['config'] as const
 
-/** The board is refetched whenever the window regains focus, which is how a
- *  change made by an agent (or in the TUI) shows up without any watching. */
-export function useBoard(project: string | undefined) {
+/**
+ * The board re-reads on focus, and on a timer while you are looking at it —
+ * an agent's work should turn up on a screen nobody is touching, which is
+ * exactly the case a focus-only refetch misses. The interval comes from the
+ * server (10s local, 30s remote, or whatever was configured), and TanStack
+ * Query stops the timer while the tab is in the background.
+ */
+export function useBoard(project: string | undefined, pollMs = 0) {
   return useQuery({
     queryKey: boardKey(project ?? ''),
     queryFn: () => api.board(project!),
     enabled: !!project,
+    refetchInterval: pollMs > 0 ? pollMs : false,
   })
 }
 

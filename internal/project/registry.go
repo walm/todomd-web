@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/walm/todomd-web/internal/todomd"
 )
@@ -34,6 +35,9 @@ type Entry struct {
 	// need it: an ssh command runs a non-interactive shell, which frequently
 	// lacks ~/.local/bin.
 	Bin string `json:"todomd,omitempty"`
+	// Poll is how often the board re-reads this project, 0 when unset. A slow
+	// ssh link usually wants a longer one than a local file.
+	Poll time.Duration `json:"-"`
 }
 
 // Remote reports whether this project lives on another machine.
@@ -61,6 +65,9 @@ var ErrNotConfigurable = errors.New("projects were given on the command line; ed
 var ErrNotFound = errors.New("no such project")
 
 type config struct {
+	// Poll is the default refresh interval for every project ("10s", "1m",
+	// "0" to switch it off).
+	Poll     string        `json:"poll,omitempty"`
 	Projects []configEntry `json:"projects"`
 }
 
@@ -70,6 +77,8 @@ type configEntry struct {
 	// Todomd is the binary to run for this project, when the default is not
 	// on the remote PATH.
 	Todomd string `json:"todomd,omitempty"`
+	// Poll overrides the refresh interval for this project alone.
+	Poll string `json:"poll,omitempty"`
 }
 
 // Registry is the list of projects, safe for concurrent use.
@@ -78,6 +87,10 @@ type Registry struct {
 	entries []Entry
 	source  Source
 	path    string // config file, "" when the list came from flags
+	// poll is the configured default refresh interval, 0 when the config says
+	// nothing; pollSet distinguishes "not configured" from "configured as off".
+	poll    time.Duration
+	pollSet bool
 	// saved reports whether the current list is on disk; a list discovered
 	// from the working directory is not written out until something changes it.
 	saved bool
@@ -96,6 +109,31 @@ func ConfigPath() (string, error) {
 	}
 	return filepath.Join(base, "todomd-web", "config.json"), nil
 }
+
+// ParsePoll reads a refresh interval: a Go duration, or "0"/"off" to disable.
+// Anything under two seconds is refused, because each poll is a todomd
+// invocation — and an ssh round trip for a remote project.
+func ParsePoll(s string) (time.Duration, error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return 0, errors.New("empty interval")
+	}
+	if s == "0" || s == "off" || s == "none" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid interval %q (want e.g. 10s, 1m, or 0 to switch it off)", s)
+	}
+	if d < 2*time.Second {
+		return 0, fmt.Errorf("interval %s is too short: 2s is the minimum, or 0 to switch it off", d)
+	}
+	return d, nil
+}
+
+// Poll returns the configured default refresh interval, and whether the
+// config set one at all.
+func (r *Registry) Poll() (time.Duration, bool) { return r.poll, r.pollSet }
 
 // newEntry turns a written address — a local path or scp syntax — into an
 // entry, with a name if one was not given.
@@ -143,10 +181,22 @@ func Load(path string) (*Registry, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	if cfg.Poll != "" {
+		poll, err := ParsePoll(cfg.Poll)
+		if err != nil {
+			return nil, fmt.Errorf("%s: poll: %w", path, err)
+		}
+		r.poll, r.pollSet = poll, true
+	}
 	for _, entry := range cfg.Projects {
 		e, err := newEntry(entry.File, entry.Name, entry.Todomd)
 		if err != nil {
 			return nil, err
+		}
+		if entry.Poll != "" {
+			if e.Poll, err = ParsePoll(entry.Poll); err != nil {
+				return nil, fmt.Errorf("%s: %s: poll: %w", path, e.Name, err)
+			}
 		}
 		r.append(e)
 	}
@@ -349,8 +399,18 @@ func (r *Registry) save() error {
 		return ErrNotConfigurable
 	}
 	cfg := config{Projects: []configEntry{}}
+	if r.pollSet {
+		cfg.Poll = r.poll.String()
+		if r.poll == 0 {
+			cfg.Poll = "0"
+		}
+	}
 	for _, e := range r.entries {
-		cfg.Projects = append(cfg.Projects, configEntry{Name: e.Name, File: e.File, Todomd: e.Bin})
+		entry := configEntry{Name: e.Name, File: e.File, Todomd: e.Bin}
+		if e.Poll > 0 {
+			entry.Poll = e.Poll.String()
+		}
+		cfg.Projects = append(cfg.Projects, entry)
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
