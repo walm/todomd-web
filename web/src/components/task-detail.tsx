@@ -60,8 +60,10 @@ export function TaskDetail({
           </span>
         </span>
       }
-    >
-      <div className="flex flex-col gap-4">
+      // The board, the tags and Edit belong with the title: a long
+      // description or a long comment thread should not scroll away the
+      // controls for the task you are reading.
+      toolbar={
         <div className="flex flex-wrap items-center gap-2">
           <BoardSelect
             value={task.board}
@@ -100,7 +102,9 @@ export function TaskDetail({
             </Button>
           )}
         </div>
-
+      }
+    >
+      <div className="flex flex-col gap-4">
         {editing ? (
           <TaskFields
             task={task}

@@ -21,6 +21,9 @@ export interface ResponsiveDialogProps {
   onOpenChange: (open: boolean) => void
   title: ReactNode
   description?: ReactNode
+  /** Controls that belong with the title rather than the content: they sit
+   *  outside the scroll area, so they stay put however far you scroll. */
+  toolbar?: ReactNode
   children: ReactNode
   className?: string
 }
@@ -31,6 +34,7 @@ export function ResponsiveDialog({
   onOpenChange,
   title,
   description,
+  toolbar,
   children,
   className,
 }: ResponsiveDialogProps) {
@@ -59,9 +63,10 @@ export function ResponsiveDialog({
               <DrawerDescription className="sr-only">Task details</DrawerDescription>
             )}
           </DrawerHeader>
+          {toolbar && <div className="shrink-0 border-b px-4 pb-3">{toolbar}</div>}
           <div
             ref={body}
-            className="min-h-0 grow overflow-y-auto overscroll-contain px-4 pb-6"
+            className="min-h-0 grow overflow-y-auto overscroll-contain px-4 pt-3 pb-6"
           >
             {children}
           </div>
@@ -83,6 +88,7 @@ export function ResponsiveDialog({
             <DialogDescription className="sr-only">Task details</DialogDescription>
           )}
         </DialogHeader>
+        {toolbar && <div className="-mx-4 shrink-0 border-b px-4 pb-3">{toolbar}</div>}
         <div ref={body} className="-mx-1 min-h-0 grow overflow-y-auto px-1">
           {children}
         </div>
