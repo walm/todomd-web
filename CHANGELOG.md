@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The open task keeps its board picker, priority, due date, tags and Edit
+  button pinned beside the title, instead of scrolling them away behind a
+  long description or comment thread. They sit outside the scrolling area in
+  both the desktop dialog and the mobile sheet.
+
 ## v0.7.0
 
 - **An open board now refreshes itself** — every 10 seconds for a local
