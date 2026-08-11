@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.7.1
 
 - The open task keeps its board picker, priority, due date, tags and Edit
   button pinned beside the title, instead of scrolling them away behind a
