@@ -76,6 +76,26 @@ export function useDeleteTask(project: string) {
   })
 }
 
+/** Deleting a board takes its tasks with it, so the toast says how many —
+ *  there is no undo, and the file is the only record. */
+export function useDeleteBoard(project: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ board, force }: { board: string; force: boolean }) =>
+      api.deleteBoard(project, board, force),
+    onError: (err: Error) =>
+      toast.error('Could not delete the board', { description: err.message }),
+    onSuccess: (gone) =>
+      toast.success(`Deleted ${gone.board}`, {
+        description:
+          gone.tasks.length > 0
+            ? `${gone.tasks.length} task${gone.tasks.length === 1 ? '' : 's'} went with it.`
+            : undefined,
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: boardKey(project) }),
+  })
+}
+
 export interface MoveArgs {
   id: string
   to: string

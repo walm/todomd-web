@@ -1,6 +1,7 @@
 import type {
   BoardResponse,
   ChangesResponse,
+  DeletedBoard,
   Config,
   NewProject,
   NewTask,
@@ -77,6 +78,14 @@ export const api = {
   board: (project: string) => request<BoardResponse>(`${scope(project)}/board`),
 
   changes: (project: string) => request<ChangesResponse>(`${scope(project)}/changes`),
+
+  /** Deletes a board. force is required when it still holds tasks, because
+   *  todomd deletes those with it. */
+  deleteBoard: (project: string, board: string, force: boolean) =>
+    request<DeletedBoard>(
+      `${scope(project)}/boards/${encodeURIComponent(board)}${force ? '?force=true' : ''}`,
+      { method: 'DELETE' },
+    ),
 
   createTask: (project: string, task: NewTask) =>
     request<TaskResponse>(`${scope(project)}/tasks`, { method: 'POST', body: body(task) }),

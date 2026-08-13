@@ -119,6 +119,14 @@ export interface ChangesResponse {
   events: ChangeEvent[]
 }
 
+/** What went with a deleted board: the board, and the tasks it held. */
+export interface DeletedBoard {
+  project: string
+  board: string
+  tasks: Task[]
+  rev: string
+}
+
 export interface TaskResponse {
   project: string
   task: Task

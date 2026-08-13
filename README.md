@@ -103,6 +103,10 @@ and hold briefly before dragging, or just open the card and change its board
 there. Task detail is deep-linked at `/t/<id>`, so a card can be bookmarked
 or shared.
 
+A board's heading carries a delete button. An empty board goes on the click;
+one that still holds tasks asks first and says how many, because todomd
+deletes those tasks with it — needs **todomd v0.9.0 or newer**.
+
 Cards an agent (or the TUI, or a `git pull`) touched since you last looked
 are badged — green for new, amber for changed — using `todomd changes --as
 web`. Opening a card clears its badge; your own edits never raise one.
@@ -249,6 +253,7 @@ server remembering which one you are looking at.
 | `POST` | `/api/projects/{project}/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
 | `POST` | `/api/projects/{project}/tasks/{id}/comments` | `{author, text}` |
 | `DELETE` | `/api/projects/{project}/tasks/{id}` | — |
+| `DELETE` | `/api/projects/{project}/boards/{board}` | — ; `?force=true` is required when the board still holds tasks, which are deleted with it |
 
 Errors come back as `{"error": "…"}` with todomd's own message: `404` no such
 task, `409` ambiguous id prefix, `400` anything it rejected.

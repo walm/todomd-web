@@ -149,6 +149,7 @@ func (s *Server) Handler() http.Handler {
 	const p = "/api/projects/{project}"
 	route("GET", p+"/board", s.withProject(s.handleBoard))
 	route("GET", p+"/changes", s.withProject(s.handleChanges))
+	route("DELETE", p+"/boards/{board}", s.withProject(s.handleDeleteBoard))
 	route("POST", p+"/tasks", s.withProject(s.handleCreateTask))
 	route("PATCH", p+"/tasks/{id}", s.withProject(s.handleUpdateTask))
 	route("DELETE", p+"/tasks/{id}", s.withProject(s.handleDeleteTask))
