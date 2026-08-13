@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/walm/todomd-web/internal/project"
@@ -61,6 +62,46 @@ func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request, entry proje
 		File:    f.Path,
 		Rev:     client.Rev(),
 		Boards:  f.Boards,
+	})
+}
+
+type deleteBoardResponse struct {
+	Project string        `json:"project"`
+	Board   string        `json:"board"`
+	Tasks   []todomd.Task `json:"tasks"`
+	Rev     string        `json:"rev"`
+}
+
+// handleDeleteBoard removes a board. An empty one goes on request; one that
+// still holds tasks needs ?force=true, because todomd deletes those tasks with
+// it — the UI asks first, and this refuses with 409 if it did not, which also
+// covers the board having gained a task since the UI last looked.
+func (s *Server) handleDeleteBoard(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
+	name := r.PathValue("board")
+	force := r.URL.Query().Get("force") == "true"
+
+	gone, err := client.DeleteBoard(r.Context(), name, force)
+	if err != nil {
+		var cli *todomd.Error
+		switch {
+		case errors.As(err, &cli) && cli.BoardNotEmpty():
+			writeJSON(w, http.StatusConflict, errorResponse{cli.Error()})
+		case errors.As(err, &cli) && cli.NoSuchBoard():
+			writeJSON(w, http.StatusNotFound, errorResponse{cli.Error()})
+		default:
+			s.writeError(w, err)
+		}
+		return
+	}
+
+	// The tasks went with the board; they are this server's doing, so they
+	// should not come back as somebody else's unread changes.
+	for _, t := range gone.Tasks {
+		s.markSelf(entry.ID, t.ID)
+	}
+	s.log.Info("deleted board", "project", entry.ID, "board", gone.Board, "tasks", len(gone.Tasks))
+	writeJSON(w, http.StatusOK, deleteBoardResponse{
+		Project: entry.ID, Board: gone.Board, Tasks: gone.Tasks, Rev: client.Rev(),
 	})
 }
 

@@ -457,3 +457,96 @@ func TestPollFlagOverridesEverything(t *testing.T) {
 		})
 	}
 }
+
+// requireBoardDelete skips when the installed todomd predates
+// `boards delete`, which arrived in v0.9.0.
+func requireBoardDelete(t *testing.T) {
+	t.Helper()
+	out, err := exec.Command(todomd.DefaultBin, "boards", "delete", "--help").CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "--force") {
+		t.Skip("this todomd has no 'boards delete' (needs v0.9.0 or newer)")
+	}
+}
+
+func TestDeleteEmptyBoard(t *testing.T) {
+	srv, _ := newTestServer(t)
+	requireBoardDelete(t)
+
+	var out deleteBoardResponse
+	code := do(t, srv, "DELETE", "/api/projects/solo/boards/In%20Progress", "", &out)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d", code)
+	}
+	if out.Board != "In Progress" || len(out.Tasks) != 0 {
+		t.Errorf("response = %+v", out)
+	}
+
+	var board boardResponse
+	do(t, srv, "GET", "/api/projects/solo/board", "", &board)
+	for _, column := range board.Boards {
+		if column.Name == "In Progress" {
+			t.Error("the board is still listed")
+		}
+	}
+}
+
+func TestDeletingABoardWithTasksNeedsForce(t *testing.T) {
+	srv, _ := newTestServer(t)
+	requireBoardDelete(t)
+	var created taskResponse
+	do(t, srv, "POST", "/api/projects/solo/tasks", `{"title":"still here","board":"Backlog"}`, &created)
+
+	// Without force the tasks would go silently, so todomd refuses and this
+	// says so with a status the UI can act on.
+	var body errorResponse
+	if code := do(t, srv, "DELETE", "/api/projects/solo/boards/Backlog", "", &body); code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409 (%q)", code, body.Error)
+	}
+	if !strings.Contains(body.Error, "still holds") {
+		t.Errorf("error should say why: %q", body.Error)
+	}
+	var board boardResponse
+	do(t, srv, "GET", "/api/projects/solo/board", "", &board)
+	if len(board.Boards) != 3 {
+		t.Fatalf("a refused delete changed the file: %+v", board.Boards)
+	}
+
+	// With it, the board and its tasks go together, and the response says
+	// which tasks those were.
+	var out deleteBoardResponse
+	if code := do(t, srv, "DELETE", "/api/projects/solo/boards/Backlog?force=true", "", &out); code != http.StatusOK {
+		t.Fatalf("forced status = %d", code)
+	}
+	if len(out.Tasks) != 1 || out.Tasks[0].Title != "still here" {
+		t.Errorf("deleted tasks = %+v", out.Tasks)
+	}
+	do(t, srv, "GET", "/api/projects/solo/board", "", &board)
+	if len(board.Boards) != 2 {
+		t.Errorf("boards after delete = %+v", board.Boards)
+	}
+}
+
+func TestDeletingAnUnknownBoard(t *testing.T) {
+	srv, _ := newTestServer(t)
+	requireBoardDelete(t)
+	var body errorResponse
+	if code := do(t, srv, "DELETE", "/api/projects/solo/boards/Nope", "", &body); code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 (%q)", code, body.Error)
+	}
+}
+
+func TestDeletedBoardsTasksDoNotBadgeAsUnread(t *testing.T) {
+	srv, _ := newTestServer(t)
+	requireBoardDelete(t)
+	do(t, srv, "GET", "/api/projects/solo/changes", "", &changesResponse{}) // initialise
+	do(t, srv, "POST", "/api/projects/solo/tasks", `{"title":"doomed","board":"Backlog"}`, &taskResponse{})
+	do(t, srv, "DELETE", "/api/projects/solo/boards/Backlog?force=true", "", &deleteBoardResponse{})
+
+	var ch changesResponse
+	do(t, srv, "GET", "/api/projects/solo/changes", "", &ch)
+	for _, e := range ch.Events {
+		if e.Title == "doomed" {
+			t.Errorf("this server's own deletion came back as a change: %+v", e)
+		}
+	}
+}

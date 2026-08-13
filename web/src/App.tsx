@@ -210,6 +210,7 @@ export default function App() {
           <BoardDnd boards={boards} onMove={(args) => move.mutate(args)}>
             {view === 'list' ? (
               <BoardList
+                project={currentId!}
                 boards={filtered}
                 totals={totals}
                 unreadOf={unreadOf}
@@ -221,6 +222,7 @@ export default function App() {
                 {filtered.map((column, i) => (
                   <BoardColumn
                     key={column.name}
+                    project={currentId!}
                     board={column}
                     total={boards[i].tasks.length}
                     unreadOf={unreadOf}

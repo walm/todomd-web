@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { Board, Task } from '@/api/types'
+import { BoardDelete } from '@/components/board-delete'
 import { Button } from '@/components/ui/button'
 import { SortableTask } from '@/components/sortable-task'
 import { TaskRow } from '@/components/task-row'
@@ -10,6 +11,7 @@ import type { UnreadKind } from '@/hooks/use-unread'
 import { cn } from '@/lib/utils'
 
 export interface BoardListProps {
+  project: string
   boards: Board[]
   /** Counts before filtering, keyed by board name. */
   totals: Record<string, number>
@@ -25,12 +27,13 @@ export interface BoardListProps {
  * down, and keeps drag-and-drop — a row dragged under another heading moves
  * boards exactly as a card does.
  */
-export function BoardList({ boards, totals, unreadOf, onOpen, onAdd }: BoardListProps) {
+export function BoardList({ project, boards, totals, unreadOf, onOpen, onAdd }: BoardListProps) {
   return (
     <div className="mx-auto h-full w-full max-w-3xl overflow-y-auto px-3 pb-6">
       {boards.map((board) => (
         <ListGroup
           key={board.name}
+          project={project}
           board={board}
           total={totals[board.name] ?? board.tasks.length}
           unreadOf={unreadOf}
@@ -43,6 +46,7 @@ export function BoardList({ boards, totals, unreadOf, onOpen, onAdd }: BoardList
 }
 
 interface ListGroupProps {
+  project: string
   board: Board
   total: number
   unreadOf: (id: string) => UnreadKind | undefined
@@ -50,18 +54,19 @@ interface ListGroupProps {
   onAdd: (board: string) => void
 }
 
-function ListGroup({ board, total, unreadOf, onOpen, onAdd }: ListGroupProps) {
+function ListGroup({ project, board, total, unreadOf, onOpen, onAdd }: ListGroupProps) {
   const hidden = total - board.tasks.length
   const { setNodeRef, isOver } = useDroppable({ id: columnDroppableId(board.name) })
 
   return (
-    <section>
+    <section className="group/board">
       {/* Sticky, so you always know which board you are looking at halfway
           down a long list. */}
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/90 py-2 backdrop-blur-sm">
         <h2 className="text-sm font-semibold tracking-tight">{board.name}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">{total}</span>
         <div className="grow" />
+        <BoardDelete project={project} board={board.name} tasks={total} />
         <Button
           variant="ghost"
           size="icon-xs"

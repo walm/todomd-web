@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Delete a board** from its heading, following todomd v0.9.0. An empty board
+  goes on the click; one that still holds tasks asks first and says how many,
+  because todomd deletes those tasks with it. Available in both views, and
+  needs todomd v0.9.0 or newer.
+
 ## v0.7.1
 
 - The open task keeps its board picker, priority, due date, tags and Edit

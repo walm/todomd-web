@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { Board, Task } from '@/api/types'
+import { BoardDelete } from '@/components/board-delete'
 import { Button } from '@/components/ui/button'
 import { SortableTask } from '@/components/sortable-task'
 import { TaskCard } from '@/components/task-card'
@@ -10,6 +11,7 @@ import type { UnreadKind } from '@/hooks/use-unread'
 import { cn } from '@/lib/utils'
 
 export interface BoardColumnProps {
+  project: string
   board: Board
   unreadOf: (id: string) => UnreadKind | undefined
   onOpen: (task: Task) => void
@@ -18,16 +20,17 @@ export interface BoardColumnProps {
   total: number
 }
 
-export function BoardColumn({ board, unreadOf, onOpen, onAdd, total }: BoardColumnProps) {
+export function BoardColumn({ project, board, unreadOf, onOpen, onAdd, total }: BoardColumnProps) {
   const hidden = total - board.tasks.length
   const { setNodeRef, isOver } = useDroppable({ id: columnDroppableId(board.name) })
 
   return (
-    <section className="flex w-[85vw] max-w-100 shrink-0 snap-start flex-col sm:w-80 md:snap-align-none">
+    <section className="group/board flex w-[85vw] max-w-100 shrink-0 snap-start flex-col sm:w-80 md:snap-align-none">
       <header className="flex items-center gap-2 px-1 pb-1.5">
         <h2 className="text-sm font-semibold tracking-tight">{board.name}</h2>
         <span className="text-xs text-muted-foreground tabular-nums">{total}</span>
         <div className="grow" />
+        <BoardDelete project={project} board={board.name} tasks={total} />
         <Button
           variant="ghost"
           size="icon-xs"

@@ -47,6 +47,13 @@ type File struct {
 	Boards []Board `json:"boards"`
 }
 
+// DeletedBoard is what `todomd boards delete --json` reports: the board, and
+// the tasks that went with it.
+type DeletedBoard struct {
+	Board string `json:"board"`
+	Tasks []Task `json:"tasks"`
+}
+
 // BoardCount is one entry of `todomd boards --json`.
 type BoardCount struct {
 	Name  string `json:"name"`

@@ -195,6 +195,31 @@ func (c *Client) Boards(ctx context.Context) ([]BoardCount, error) {
 	return v.Boards, nil
 }
 
+// DeleteBoard removes a board and returns what went with it. An empty board
+// goes straight away; one that still holds tasks needs force, because todomd
+// deletes those tasks with it.
+func (c *Client) DeleteBoard(ctx context.Context, name string, force bool) (*DeletedBoard, error) {
+	args := []string{"boards", "delete", name, "--json"}
+	if force {
+		args = append(args, "--force")
+	}
+	return runJSON[DeletedBoard](ctx, c, args...)
+}
+
+// BoardNotEmpty reports whether this error is todomd refusing to delete a
+// board that still holds tasks. todomd gives it no exit code of its own, so
+// the message is all there is to go on — a miss costs the caller a plain
+// error instead of a nicer one, which is why nothing depends on it being
+// right.
+func (e *Error) BoardNotEmpty() bool {
+	return e.Code == 1 && strings.Contains(e.Msg, "still holds")
+}
+
+// NoSuchBoard reports whether this error is todomd not finding the board.
+func (e *Error) NoSuchBoard() bool {
+	return e.Code == 1 && strings.Contains(e.Msg, "no board named")
+}
+
 // Add creates a task and returns it.
 func (c *Client) Add(ctx context.Context, t NewTask) (*Task, error) {
 	args := []string{"add", t.Title, "--json"}

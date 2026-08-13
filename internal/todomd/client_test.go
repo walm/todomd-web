@@ -230,3 +230,42 @@ func TestNewReportsMissingBinary(t *testing.T) {
 		t.Errorf("got %v, want ErrNotInstalled", err)
 	}
 }
+
+func TestDeleteBoardArgs(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		force bool
+		want  []string
+	}{
+		{"empty board needs no force", false,
+			[]string{"--file", "/tmp/TODO.md", "boards", "delete", "In Progress", "--json"}},
+		{"forced", true,
+			[]string{"--file", "/tmp/TODO.md", "boards", "delete", "In Progress", "--json", "--force"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, argsFile := fakeClient(t, `{"board":"In Progress","tasks":[]}`, 0)
+			if _, err := c.DeleteBoard(t.Context(), "In Progress", tt.force); err != nil {
+				t.Fatal(err)
+			}
+			if got := recordedArgs(t, argsFile); !slices.Equal(got, tt.want) {
+				t.Errorf("argv = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoardErrorsAreRecognised(t *testing.T) {
+	notEmpty := &Error{Code: 1, Msg: `board "Backlog" still holds 3 task(s), which would be deleted with it`}
+	if !notEmpty.BoardNotEmpty() || notEmpty.NoSuchBoard() {
+		t.Errorf("not-empty error misread: %+v", notEmpty)
+	}
+	missing := &Error{Code: 1, Msg: `no board named "Nope"`}
+	if !missing.NoSuchBoard() || missing.BoardNotEmpty() {
+		t.Errorf("missing-board error misread: %+v", missing)
+	}
+	// Anything else stays what it is: these are hints, not a taxonomy.
+	other := &Error{Code: 1, Msg: "some other failure"}
+	if other.BoardNotEmpty() || other.NoSuchBoard() {
+		t.Errorf("unrelated error misread: %+v", other)
+	}
+}
