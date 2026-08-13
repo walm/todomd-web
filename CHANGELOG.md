@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.8.0
 
 - **Delete a board** from its heading, following todomd v0.9.0. An empty board
   goes on the click; one that still holds tasks asks first and says how many,
