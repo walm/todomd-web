@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.9.0
 
 - **Attachments.** Paste a screenshot into a task's description or comment
   box, drop a file on it, or pick one with the paperclip — while writing a
