@@ -43,6 +43,8 @@ export interface Config {
    *  the UI hides its add and remove controls. */
   configurable: boolean
   configFile: string
+  /** The largest file one attachment may be, in bytes. */
+  attachmentMaxBytes: number
 }
 
 export interface UpdateStatus {
@@ -76,6 +78,10 @@ export interface Project {
    *  Remote projects are taken on trust; they report their errors when
    *  opened. */
   available: boolean
+  /** The directory this project's attached files live in. Links to them are
+   *  written as absolute paths under it; absent when the project cannot take
+   *  attachments, which today means one over ssh. */
+  attachments?: string
 }
 
 export interface ProjectsResponse {
@@ -125,6 +131,22 @@ export interface DeletedBoard {
   board: string
   tasks: Task[]
   rev: string
+}
+
+/** A file stored against a task. `markdown` is the link to insert — the
+ *  upload itself writes nothing to the todo file. */
+export interface Attachment {
+  name: string
+  /** Absolute, on the machine running todomd-web: what an agent opens. */
+  path: string
+  size: number
+  type: string
+  markdown: string
+}
+
+export interface AttachmentsResponse {
+  project: string
+  attachments: Attachment[]
 }
 
 export interface TaskResponse {

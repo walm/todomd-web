@@ -70,6 +70,16 @@ export function useAddComment(project: string) {
   )
 }
 
+/** An upload leaves the board as it was — the link lands in the file when the
+ *  edit or comment it was inserted into is saved — so nothing is invalidated. */
+export function useAttach(project: string) {
+  return useMutation({
+    mutationFn: ({ id, files }: { id: string; files: File[] }) => api.attach(project, id, files),
+    onError: (err: Error) =>
+      toast.error('Could not attach the file', { description: err.message }),
+  })
+}
+
 export function useDeleteTask(project: string) {
   return useBoardMutation(project, (id: string) => api.deleteTask(project, id), {
     onError: 'Could not delete the task',

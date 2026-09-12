@@ -242,6 +242,8 @@ export default function App() {
           task={task}
           boards={boardNames}
           defaultAuthor={config.data?.author ?? 'user'}
+          attachments={current?.attachments}
+          attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
           open
           onOpenChange={(next) => !next && closeTask()}
         />

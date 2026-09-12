@@ -1,4 +1,5 @@
 import type {
+  AttachmentsResponse,
   BoardResponse,
   ChangesResponse,
   DeletedBoard,
@@ -25,7 +26,8 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    // A FormData body sets its own multipart boundary; only JSON is labelled.
+    headers: typeof init?.body === 'string' ? { 'Content-Type': 'application/json' } : undefined,
   })
   if (!res.ok) {
     // Errors carry todomd's own message ("no task with id …", "invalid date
@@ -112,4 +114,15 @@ export const api = {
 
   deleteTask: (project: string, id: string) =>
     request<void>(`${scope(project)}/tasks/${id}`, { method: 'DELETE' }),
+
+  /** Stores files against a task. Nothing is written to the todo file: each
+   *  attachment comes back with the markdown for the editor to insert. */
+  attach: (project: string, id: string, files: File[]) => {
+    const form = new FormData()
+    for (const file of files) form.append('file', file, file.name)
+    return request<AttachmentsResponse>(`${scope(project)}/tasks/${id}/attachments`, {
+      method: 'POST',
+      body: form,
+    })
+  },
 }

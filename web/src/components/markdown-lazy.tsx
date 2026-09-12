@@ -10,7 +10,7 @@ const MarkdownImpl = lazy(() =>
   import('@/components/markdown').then((m) => ({ default: m.Markdown })),
 )
 
-export function Markdown({ children, className }: MarkdownProps) {
+export function Markdown({ children, className, ...rest }: MarkdownProps) {
   return (
     <Suspense
       fallback={
@@ -19,7 +19,9 @@ export function Markdown({ children, className }: MarkdownProps) {
         </div>
       }
     >
-      <MarkdownImpl className={className}>{children}</MarkdownImpl>
+      <MarkdownImpl className={className} {...rest}>
+        {children}
+      </MarkdownImpl>
     </Suspense>
   )
 }
