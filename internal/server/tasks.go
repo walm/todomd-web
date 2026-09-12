@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/walm/todomd-web/internal/attach"
 	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/todomd"
 )
@@ -41,6 +42,9 @@ type createRequest struct {
 	Tags        []string `json:"tags"`
 	Priority    string   `json:"priority"`
 	Due         *string  `json:"due"`
+	// Draft names the attachments uploaded while the task was being written;
+	// they move to the new task, and their links in the description follow.
+	Draft string `json:"draft"`
 }
 
 func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
@@ -51,6 +55,10 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, entry 
 	}
 	if strings.TrimSpace(req.Title) == "" {
 		s.writeError(w, invalid("title must not be empty"))
+		return
+	}
+	if req.Draft != "" && !attach.ValidDraft(req.Draft) {
+		s.writeError(w, invalid("a draft id is 16 to 64 lowercase letters and digits"))
 		return
 	}
 	t := todomd.NewTask{
@@ -67,6 +75,9 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, entry 
 	if err != nil {
 		s.writeError(w, err)
 		return
+	}
+	if req.Draft != "" {
+		created = s.claimDraft(r.Context(), entry, client, req.Draft, created)
 	}
 	s.respondTask(w, http.StatusCreated, entry, client, created)
 }
@@ -206,5 +217,6 @@ func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request, entry 
 		return
 	}
 	s.markSelf(entry.ID, deleted.ID)
+	s.forgetAttachments(entry, deleted.ID)
 	w.WriteHeader(http.StatusNoContent)
 }

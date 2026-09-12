@@ -5,8 +5,8 @@ import { useAddComment, useDeleteTask, useMoveTask, useUpdateTask } from '@/api/
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Markdown } from '@/components/markdown-lazy'
+import { AttachField, type AttachTarget } from '@/components/attach-field'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
 import { PriorityMark } from '@/components/priority-mark'
@@ -23,6 +23,9 @@ export interface TaskDetailProps {
   task: Task
   boards: string[]
   defaultAuthor: string
+  /** The project's attachment root; absent when it cannot take attachments. */
+  attachments?: string
+  attachmentMaxBytes: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -32,9 +35,17 @@ export function TaskDetail({
   task,
   boards,
   defaultAuthor,
+  attachments,
+  attachmentMaxBytes,
   open,
   onOpenChange,
 }: TaskDetailProps) {
+  const target: AttachTarget = {
+    project,
+    to: { task: task.id },
+    root: attachments,
+    maxBytes: attachmentMaxBytes,
+  }
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -108,6 +119,7 @@ export function TaskDetail({
         {editing ? (
           <TaskFields
             task={task}
+            target={target}
             saving={update.isPending}
             onCancel={() => setEditing(false)}
             onSave={(patch) =>
@@ -118,12 +130,14 @@ export function TaskDetail({
             }
           />
         ) : task.description ? (
-          <Markdown>{task.description}</Markdown>
+          <Markdown project={project} attachments={attachments}>
+            {task.description}
+          </Markdown>
         ) : (
           <p className="text-sm text-muted-foreground italic">No description</p>
         )}
 
-        <Comments project={project} task={task} defaultAuthor={defaultAuthor} />
+        <Comments task={task} target={target} defaultAuthor={defaultAuthor} />
 
         <div className="flex items-center justify-end gap-2 border-t pt-3">
           {confirmDelete ? (
@@ -160,6 +174,7 @@ export function TaskDetail({
 
 interface TaskFieldsProps {
   task: Task
+  target: AttachTarget
   saving: boolean
   onSave: (patch: {
     title: string
@@ -173,14 +188,18 @@ interface TaskFieldsProps {
 
 /** The edit form. Tags are a comma/space separated list, matching how they
  *  read in the file (`#core #parser`). */
-function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
+function TaskFields({ task, target, saving, onSave, onCancel }: TaskFieldsProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description)
   const [tags, setTags] = useState(task.tags.join(' '))
   const [priority, setPriority] = useState<Priority>(task.priority)
   const [due, setDue] = useState(task.due ?? '')
+  // Saving while a file is still uploading would write a description without
+  // the link it is about to get.
+  const [uploading, setUploading] = useState(false)
 
   const submit = () =>
+    !uploading &&
     onSave({
       title: title.trim(),
       description,
@@ -210,11 +229,17 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
         placeholder="Title"
         autoFocus
       />
-      <Textarea
+      <AttachField
+        target={target}
         value={description}
-        onChange={(e) => setDescription(e.target.value)}
+        onValueChange={setDescription}
+        onBusyChange={setUploading}
         aria-label="Description"
-        placeholder="Description — markdown, kept verbatim in the file"
+        placeholder={
+          target.root
+            ? 'Description — markdown, kept verbatim in the file. Paste or drop files to attach.'
+            : 'Description — markdown, kept verbatim in the file'
+        }
         className="min-h-32 font-mono text-base md:text-[0.8rem]"
       />
       <div className="flex flex-wrap gap-2">
@@ -238,7 +263,7 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={saving || !title.trim()}>
+        <Button type="submit" size="sm" disabled={saving || uploading || !title.trim()}>
           {saving && <Loader2 className="animate-spin" />}
           Save
         </Button>
@@ -248,18 +273,20 @@ function TaskFields({ task, saving, onSave, onCancel }: TaskFieldsProps) {
 }
 
 function Comments({
-  project,
   task,
+  target,
   defaultAuthor,
 }: {
-  project: string
   task: Task
+  target: AttachTarget
   defaultAuthor: string
 }) {
+  const { project, root } = target
   const [text, setText] = useState('')
   const [author, setAuthor] = useState(
     () => localStorage.getItem(AUTHOR_KEY) ?? defaultAuthor,
   )
+  const [uploading, setUploading] = useState(false)
   const add = useAddComment(project)
   const box = useRef<HTMLTextAreaElement>(null)
   const mobile = useIsMobile()
@@ -276,7 +303,7 @@ function Comments({
 
   const submit = () => {
     const body = text.trim()
-    if (!body) return
+    if (!body || uploading) return
     localStorage.setItem(AUTHOR_KEY, author)
     add.mutate({ id: task.id, author, text: body }, { onSuccess: () => setText('') })
   }
@@ -295,16 +322,20 @@ function Comments({
             <span className="font-medium text-foreground">{comment.author}</span>
             {comment.date}
           </p>
-          <Markdown>{comment.text}</Markdown>
+          <Markdown project={project} attachments={root}>
+            {comment.text}
+          </Markdown>
         </article>
       ))}
 
       <div className="flex flex-col gap-2">
-        <Textarea
+        <AttachField
           ref={box}
+          target={target}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Add a comment…"
+          onValueChange={setText}
+          onBusyChange={setUploading}
+          placeholder={root ? 'Add a comment… paste or drop files to attach' : 'Add a comment…'}
           aria-label="New comment"
           className="min-h-16"
           onKeyDown={(e) => {
@@ -323,7 +354,11 @@ function Comments({
             title="Author recorded in the file — agents use their own name"
           />
           <div className="grow" />
-          <Button size="sm" disabled={!text.trim() || add.isPending} onClick={submit}>
+          <Button
+            size="sm"
+            disabled={!text.trim() || uploading || add.isPending}
+            onClick={submit}
+          >
             {add.isPending ? <Loader2 className="animate-spin" /> : <MessageSquarePlus />}
             Comment
           </Button>

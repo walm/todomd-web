@@ -111,6 +111,30 @@ Cards an agent (or the TUI, or a `git pull`) touched since you last looked
 are badged — green for new, amber for changed — using `todomd changes --as
 web`. Opening a card clears its badge; your own edits never raise one.
 
+## 📎 Attachments
+
+Paste a screenshot into a task's description or comment box — while writing
+a new task too — drop a file on it, or pick one with the paperclip. The file is stored and a link to it is
+inserted where the caret was; it reaches `TODO.md` when you save, like
+anything else you type:
+
+```markdown
+![header-ios.png](/Users/you/.local/state/todomd-web/attachments/9c1fa3b2d4e5f607/3f2a/header-ios.png)
+```
+
+- **Nothing lands in your repository.** Files live under
+  `$XDG_STATE_HOME/todomd-web/attachments/` (`~/.local/state` when unset),
+  keyed by the todo file's path the way todomd keys its locks, so there is
+  nothing to `.gitignore` and nothing to commit by accident.
+- **The link is an absolute path on purpose**: an agent reading the file can
+  open the screenshot without being told anything about todomd-web. The
+  board shows images inline and serves everything else as a download.
+- **Attachments go with their task** — deleted here, by an agent, from the
+  TUI or by a `git pull`. Removing just the link keeps the file until the
+  task itself goes.
+- Up to 25 MB a file. **Projects over ssh cannot take attachments yet**: the
+  link would name a file on this machine, which the other host does not have.
+
 ## 🗂️ Several projects
 
 Every todo file you register is a project, and the header switches between
@@ -199,6 +223,11 @@ ssh -L 7337:127.0.0.1:7337 you@host   # or an SSH tunnel
 Both give you the board on a phone without exposing anything to the wider
 network.
 
+Attachments are served back inert: the type comes from the file extension,
+never from the uploader, the browser is told not to sniff it, anything but
+images, PDFs and plain text downloads rather than renders, and a direct visit
+runs sandboxed.
+
 ## 🤝 How it works with agents
 
 The file stays the interface. An agent runs `todomd add`, `todomd comment
@@ -248,11 +277,14 @@ server remembering which one you are looking at.
 | `DELETE` | `/api/projects/{project}` | — (list only; the file is untouched) |
 | `GET` | `/api/projects/{project}/board` | — |
 | `GET` | `/api/projects/{project}/changes` | — (advances that project's `web` cursor) |
-| `POST` | `/api/projects/{project}/tasks` | `{board?, title, description?, tags?, due?}` |
+| `POST` | `/api/projects/{project}/tasks` | `{board?, title, description?, tags?, due?, draft?}` — `draft` hands over files attached while writing, and rewrites their links |
 | `PATCH` | `/api/projects/{project}/tasks/{id}` | any of `{title, description, tags, due}`; `due: null` and `tags: []` clear |
 | `POST` | `/api/projects/{project}/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
 | `POST` | `/api/projects/{project}/tasks/{id}/comments` | `{author, text}` |
-| `DELETE` | `/api/projects/{project}/tasks/{id}` | — |
+| `DELETE` | `/api/projects/{project}/tasks/{id}` | — ; its attachments are removed with it |
+| `POST` | `/api/projects/{project}/tasks/{id}/attachments` | `multipart/form-data` with one or more `file` parts → `{attachments: [{name, path, size, type, markdown}]}`; writes nothing to the todo file |
+| `POST` | `/api/projects/{project}/drafts/{draft}/attachments` | as above, for a task not created yet; `draft` is 16–64 lowercase letters and digits of your choosing, and an unclaimed one is swept after a day |
+| `GET` | `/api/projects/{project}/attachments/{task}/{name}` | — the file |
 | `DELETE` | `/api/projects/{project}/boards/{board}` | — ; `?force=true` is required when the board still holds tasks, which are deleted with it |
 
 Errors come back as `{"error": "…"}` with todomd's own message: `404` no such

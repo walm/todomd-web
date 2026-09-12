@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from './client'
-import type { BoardResponse, NewProject, NewTask, TaskPatch } from './types'
+import type { AttachTo, BoardResponse, NewProject, NewTask, TaskPatch } from './types'
 
 /** Query keys are scoped by project, so switching boards is a cache hit and
  *  each project refetches on its own. */
@@ -68,6 +68,16 @@ export function useAddComment(project: string) {
       api.addComment(project, id, author, text),
     { onError: 'Could not add the comment' },
   )
+}
+
+/** An upload leaves the board as it was — the link lands in the file when the
+ *  edit or comment it was inserted into is saved — so nothing is invalidated. */
+export function useAttach(project: string) {
+  return useMutation({
+    mutationFn: ({ to, files }: { to: AttachTo; files: File[] }) => api.attach(project, to, files),
+    onError: (err: Error) =>
+      toast.error('Could not attach the file', { description: err.message }),
+  })
 }
 
 export function useDeleteTask(project: string) {

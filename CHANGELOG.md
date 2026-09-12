@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Attachments.** Paste a screenshot into a task's description or comment
+  box, drop a file on it, or pick one with the paperclip — while writing a
+  new task too. The file is linked from `TODO.md` by its absolute path, so an
+  agent reading the file can open it, and kept under
+  `$XDG_STATE_HOME/todomd-web/attachments`, never in the repository. Images
+  show inline; everything else downloads. Attachments go with their task,
+  however it is deleted — here, by an agent, from the TUI or by a `git pull`.
+  Up to 25 MB a file; projects over ssh cannot take attachments yet.
+
 ## v0.8.0
 
 - **Delete a board** from its heading, following todomd v0.9.0. An empty board
