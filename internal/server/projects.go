@@ -27,6 +27,9 @@ type projectJSON struct {
 	// PollMs is how often this project re-reads itself, in milliseconds; 0
 	// means the board only refreshes on focus or on request.
 	PollMs int64 `json:"pollMs"`
+	// Attachments is the directory this project's attached files live in, so
+	// the UI can recognise links to them; empty when it cannot take any.
+	Attachments string `json:"attachments,omitempty"`
 }
 
 type projectsResponse struct {
@@ -37,6 +40,9 @@ type projectsResponse struct {
 func (s *Server) describe(entry project.Entry) projectJSON {
 	out := describe(entry)
 	out.PollMs = s.pollFor(entry).Milliseconds()
+	if s.attachable(entry) == "" {
+		out.Attachments = s.store.Root(entry.File)
+	}
 	return out
 }
 

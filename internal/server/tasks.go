@@ -206,5 +206,6 @@ func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request, entry 
 		return
 	}
 	s.markSelf(entry.ID, deleted.ID)
+	s.forgetAttachments(entry, deleted.ID)
 	w.WriteHeader(http.StatusNoContent)
 }

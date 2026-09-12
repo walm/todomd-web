@@ -18,6 +18,9 @@ type configResponse struct {
 	ConfigFile   string `json:"configFile"`
 	// PollMs is the default refresh interval in milliseconds, 0 when off.
 	PollMs int64 `json:"pollMs"`
+	// AttachmentMaxBytes caps one attached file, so the UI can refuse a
+	// too-large one before uploading it.
+	AttachmentMaxBytes int64 `json:"attachmentMaxBytes"`
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -35,12 +38,13 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		poll = *s.poll
 	}
 	writeJSON(w, http.StatusOK, configResponse{
-		PollMs:        poll.Milliseconds(),
-		Author:        s.author,
-		Version:       s.ver,
-		TodomdVersion: version,
-		Configurable:  s.registry.Configurable(),
-		ConfigFile:    s.registry.Path(),
+		PollMs:             poll.Milliseconds(),
+		AttachmentMaxBytes: s.maxAttachment,
+		Author:             s.author,
+		Version:            s.ver,
+		TodomdVersion:      version,
+		Configurable:       s.registry.Configurable(),
+		ConfigFile:         s.registry.Path(),
 	})
 }
 
@@ -57,6 +61,7 @@ func (s *Server) handleBoard(w http.ResponseWriter, r *http.Request, entry proje
 		s.writeError(w, err)
 		return
 	}
+	s.sweepAttachments(entry, f)
 	writeJSON(w, http.StatusOK, boardResponse{
 		Project: entry.ID,
 		File:    f.Path,
@@ -98,6 +103,7 @@ func (s *Server) handleDeleteBoard(w http.ResponseWriter, r *http.Request, entry
 	// should not come back as somebody else's unread changes.
 	for _, t := range gone.Tasks {
 		s.markSelf(entry.ID, t.ID)
+		s.forgetAttachments(entry, t.ID)
 	}
 	s.log.Info("deleted board", "project", entry.ID, "board", gone.Board, "tasks", len(gone.Tasks))
 	writeJSON(w, http.StatusOK, deleteBoardResponse{
@@ -124,6 +130,11 @@ func (s *Server) handleChanges(w http.ResponseWriter, r *http.Request, entry pro
 	own := s.takeSelf(entry.ID)
 	events := []todomd.Event{}
 	for _, e := range ch.Events {
+		// Whoever deleted it — an agent, the TUI, a git pull — its
+		// attachments go with it.
+		if e.Type == todomd.TaskDeleted {
+			s.forgetAttachments(entry, e.TaskID)
+		}
 		if own[e.TaskID] {
 			continue
 		}

@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/walm/todomd-web/internal/attach"
 	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/todomd"
 )
@@ -71,6 +72,11 @@ type Options struct {
 	// applied from the browser takes effect without a terminal. nil means the
 	// UI is told to restart it by hand.
 	Restart func() error
+	// Attachments is where files attached to tasks are kept; nil means the
+	// default under $XDG_STATE_HOME.
+	Attachments *attach.Store
+	// MaxAttachment caps one attached file, in bytes (default attach.MaxSize).
+	MaxAttachment int64
 }
 
 // Server implements the HTTP API.
@@ -84,6 +90,12 @@ type Server struct {
 	poll     *time.Duration
 	log      *slog.Logger
 	restart  func() error
+
+	// store is nil when there is nowhere to keep attachments, which switches
+	// them off rather than failing the server.
+	store         *attach.Store
+	maxAttachment int64
+	sweeps        sweeper
 
 	mu sync.Mutex
 	// clients are made on first use and kept: one per project, each pinned to
@@ -109,6 +121,18 @@ func New(opts Options) *Server {
 		restart:  opts.Restart,
 		clients:  map[string]*todomd.Client{},
 		self:     map[string]map[string]bool{},
+
+		store:         opts.Attachments,
+		maxAttachment: opts.MaxAttachment,
+		sweeps:        sweeper{last: map[string]time.Time{}},
+	}
+	if s.store == nil {
+		if root, err := attach.DefaultRoot(); err == nil {
+			s.store = attach.New(root)
+		}
+	}
+	if s.maxAttachment <= 0 {
+		s.maxAttachment = attach.MaxSize
 	}
 	if s.author == "" {
 		s.author = "user"
@@ -155,6 +179,8 @@ func (s *Server) Handler() http.Handler {
 	route("DELETE", p+"/tasks/{id}", s.withProject(s.handleDeleteTask))
 	route("POST", p+"/tasks/{id}/move", s.withProject(s.handleMoveTask))
 	route("POST", p+"/tasks/{id}/comments", s.withProject(s.handleAddComment))
+	route("POST", p+"/tasks/{id}/attachments", s.withProject(s.handleUploadAttachment))
+	route("GET", p+"/attachments/{task}/{name}", s.withProject(s.handleServeAttachment))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorResponse{"no such endpoint"})
