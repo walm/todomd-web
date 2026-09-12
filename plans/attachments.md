@@ -344,8 +344,8 @@ shares the prefix, unsafe protocols dropped, http untouched).
   that the link is an absolute path an agent can open; that they go when the
   task does; that ssh projects cannot attach yet. Two rows in the API table,
   and a sentence in the security section.
-- **CHANGELOG** — at release, in its own "Prepare the changelog" commit, as
-  the repo already does.
+- **CHANGELOG** — an entry under `## Unreleased`, which the release's
+  "Prepare the changelog" commit renames to the version.
 - **`docs/demo/`** — worth a later pass: pasting a screenshot onto a card is
   the most demo-able thing this project has.
 
