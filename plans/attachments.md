@@ -271,6 +271,30 @@ Direct removal (`RemoveTask`) covers the common cases immediately; the sweep
 is the net under everything else, including a task deleted while no browser
 was open.
 
+### 5.1 Attaching while writing a new task
+
+The new-task dialog has no task id — todomd assigns one on `add`, and has no
+flag to take one — so its uploads go to a **draft**: the browser picks a
+random id, `POST /drafts/{draft}/attachments` stores under
+`<root>/_drafts/<draft>/`, and the links are inserted as usual. Creating the
+task with `draft` set then:
+
+1. adds the task, description and draft links as written;
+2. hard-links the draft's files into the task's directory, so both paths
+   resolve;
+3. rewrites the draft directory to the task's in the description — a second
+   write, and an unavoidable one, since the final path is not known before
+   the task exists;
+4. removes the draft.
+
+No step fails the create: the task is already in the file, and an error would
+invite a duplicate. If the rewrite fails, the task's copies go and the links
+keep pointing at the draft, which still holds the files.
+
+The `_` keeps the drafts directory from ever reading as a task id. An
+unclaimed draft is swept after a day rather than ten minutes, so a dialog left
+open over lunch keeps its screenshot.
+
 ## 6. Security
 
 The README is blunt about the posture — localhost only, no auth, "a
@@ -343,9 +367,6 @@ keeps the disk honest. Each is a commit that stands on its own.
 
 - **Attachments over ssh** (§0.4) — the phase that makes remote projects
   first-class.
-- **Attaching while creating a task** — the create dialog has no task id yet.
-  Either stage under a draft id and claim it on create, or simply create then
-  attach. Deliberately deferred.
 - **Deleting one attachment from the UI** — removing the link is what people
   will do; the file goes with the task.
 - **Rendering repo-relative images** (`![](docs/demo.gif)` in a description)

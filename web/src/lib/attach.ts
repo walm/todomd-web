@@ -48,6 +48,14 @@ export function attachmentUrl(url: string, project: string, root?: string): stri
   return null
 }
 
+/** A draft id for a task still being written. getRandomValues rather than
+ *  randomUUID, which a page served over plain http to another host lacks. */
+export function newDraftId(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+    b.toString(16).padStart(2, '0'),
+  ).join('')
+}
+
 /** A human size for the too-large message. */
 export function formatBytes(n: number): string {
   if (n >= 1 << 20) return `${Math.round((n / (1 << 20)) * 10) / 10} MB`

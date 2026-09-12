@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attachmentUrl, formatBytes, insertSnippet } from './attach'
+import { attachmentUrl, formatBytes, insertSnippet, newDraftId } from './attach'
 
 describe('insertSnippet', () => {
   const link = '![a.png](/s/a.png)'
@@ -49,6 +49,14 @@ describe('attachmentUrl', () => {
     // A sibling directory that merely shares the prefix is not ours.
     expect(attachmentUrl(`${root}-other/3f2a/a.png`, 'app', root)).toBeNull()
     expect(attachmentUrl(`${root}/3f2a/a.png`, 'app', undefined)).toBeNull()
+  })
+})
+
+describe('newDraftId', () => {
+  it('is what the server accepts, and never the same twice', () => {
+    const a = newDraftId()
+    expect(a).toMatch(/^[0-9a-f]{32}$/)
+    expect(newDraftId()).not.toBe(a)
   })
 })
 

@@ -180,6 +180,7 @@ func (s *Server) Handler() http.Handler {
 	route("POST", p+"/tasks/{id}/move", s.withProject(s.handleMoveTask))
 	route("POST", p+"/tasks/{id}/comments", s.withProject(s.handleAddComment))
 	route("POST", p+"/tasks/{id}/attachments", s.withProject(s.handleUploadAttachment))
+	route("POST", p+"/drafts/{draft}/attachments", s.withProject(s.handleUploadDraftAttachment))
 	route("GET", p+"/attachments/{task}/{name}", s.withProject(s.handleServeAttachment))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {

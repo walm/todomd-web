@@ -113,8 +113,8 @@ web`. Opening a card clears its badge; your own edits never raise one.
 
 ## 📎 Attachments
 
-Paste a screenshot into a card's description or comment box, drop a file on
-it, or pick one with the paperclip. The file is stored and a link to it is
+Paste a screenshot into a task's description or comment box — while writing
+a new task too — drop a file on it, or pick one with the paperclip. The file is stored and a link to it is
 inserted where the caret was; it reaches `TODO.md` when you save, like
 anything else you type:
 
@@ -277,12 +277,13 @@ server remembering which one you are looking at.
 | `DELETE` | `/api/projects/{project}` | — (list only; the file is untouched) |
 | `GET` | `/api/projects/{project}/board` | — |
 | `GET` | `/api/projects/{project}/changes` | — (advances that project's `web` cursor) |
-| `POST` | `/api/projects/{project}/tasks` | `{board?, title, description?, tags?, due?}` |
+| `POST` | `/api/projects/{project}/tasks` | `{board?, title, description?, tags?, due?, draft?}` — `draft` hands over files attached while writing, and rewrites their links |
 | `PATCH` | `/api/projects/{project}/tasks/{id}` | any of `{title, description, tags, due}`; `due: null` and `tags: []` clear |
 | `POST` | `/api/projects/{project}/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
 | `POST` | `/api/projects/{project}/tasks/{id}/comments` | `{author, text}` |
 | `DELETE` | `/api/projects/{project}/tasks/{id}` | — ; its attachments are removed with it |
 | `POST` | `/api/projects/{project}/tasks/{id}/attachments` | `multipart/form-data` with one or more `file` parts → `{attachments: [{name, path, size, type, markdown}]}`; writes nothing to the todo file |
+| `POST` | `/api/projects/{project}/drafts/{draft}/attachments` | as above, for a task not created yet; `draft` is 16–64 lowercase letters and digits of your choosing, and an unclaimed one is swept after a day |
 | `GET` | `/api/projects/{project}/attachments/{task}/{name}` | — the file |
 | `DELETE` | `/api/projects/{project}/boards/{board}` | — ; `?force=true` is required when the board still holds tasks, which are deleted with it |
 

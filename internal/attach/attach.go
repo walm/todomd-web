@@ -33,6 +33,15 @@ import (
 // MaxSize is the default cap on one attached file.
 const MaxSize = 25 << 20
 
+// DraftTTL is how long an unclaimed draft survives. A new-task dialog left
+// open over lunch should keep its screenshot; one abandoned yesterday should
+// not.
+const DraftTTL = 24 * time.Hour
+
+// draftsDir holds uploads for tasks that do not exist yet. The underscore
+// keeps it from ever reading as a task id, so Sweep's task pass leaves it be.
+const draftsDir = "_drafts"
+
 // SweepGrace is how recently a task's directory may have been touched and
 // still be spared by Sweep: an upload can land for a task created after the
 // board read the sweep is working from.
@@ -46,11 +55,20 @@ var (
 	ErrTooLarge = errors.New("file is too large")
 	// ErrInvalidTask is returned for a task id that cannot be a directory name.
 	ErrInvalidTask = errors.New("invalid task id")
+	// ErrInvalidDraft is returned for a draft id that is not one.
+	ErrInvalidDraft = errors.New("invalid draft id")
 )
 
 // todomd ids are four characters today; the bound leaves room for that to
 // grow without letting anything path-shaped through.
 var taskRe = regexp.MustCompile(`^[0-9a-z]{1,32}$`)
+
+// A draft id is chosen by the browser, so it has to be long enough that two
+// dialogs never pick the same one.
+var draftRe = regexp.MustCompile(`^[0-9a-z]{16,64}$`)
+
+// ValidDraft reports whether s can name a draft.
+func ValidDraft(s string) bool { return draftRe.MatchString(s) }
 
 // Store is the attachment tree for every todo file served.
 type Store struct {
@@ -88,6 +106,13 @@ func (s *Store) dir(file, task string) (string, error) {
 	return filepath.Join(s.Root(file), task), nil
 }
 
+func (s *Store) draftDir(file, draft string) (string, error) {
+	if !draftRe.MatchString(draft) {
+		return "", ErrInvalidDraft
+	}
+	return filepath.Join(s.Root(file), draftsDir, draft), nil
+}
+
 // Saved describes a stored attachment.
 type Saved struct {
 	Name string `json:"name"`
@@ -106,6 +131,20 @@ func (s *Store) Save(file, task, name string, r io.Reader, max int64) (Saved, er
 	if err != nil {
 		return Saved{}, err
 	}
+	return save(dir, name, r, max)
+}
+
+// SaveDraft is Save for a task still being written, which has no id yet.
+// Claim moves the files to the task once it exists.
+func (s *Store) SaveDraft(file, draft, name string, r io.Reader, max int64) (Saved, error) {
+	dir, err := s.draftDir(file, draft)
+	if err != nil {
+		return Saved{}, err
+	}
+	return save(dir, name, r, max)
+}
+
+func save(dir, name string, r io.Reader, max int64) (Saved, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Saved{}, err
 	}
@@ -187,19 +226,71 @@ func (s *Store) RemoveTask(file, task string) error {
 	return os.RemoveAll(dir)
 }
 
-// RemoveFile deletes one attachment, for undoing an upload that did not
-// finish. A name the store could not have written is ignored.
-func (s *Store) RemoveFile(file, task, name string) {
-	dir, err := s.dir(file, task)
-	if err != nil || name == "" || name != CleanName(name) {
+// Discard deletes one stored file, for undoing an upload that did not finish.
+// A path outside the store is ignored.
+func (s *Store) Discard(a Saved) {
+	rel, err := filepath.Rel(s.root, a.Path)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 		return
 	}
-	_ = os.Remove(filepath.Join(dir, name))
+	_ = os.Remove(a.Path)
+}
+
+// Claim gives a draft's files to the task created from it, returning the
+// directories to rewrite links from and to; from is "" when the draft holds
+// nothing. The files are hard-linked, not moved, so every link — at the
+// draft's path or the task's — resolves throughout: the caller rewrites the
+// description, then calls RemoveDraft, or RemoveTask if the rewrite failed.
+func (s *Store) Claim(file, draft, task string) (from, to string, err error) {
+	src, err := s.draftDir(file, draft)
+	if err != nil {
+		return "", "", err
+	}
+	dst, err := s.dir(file, task)
+	if err != nil {
+		return "", "", err
+	}
+	entries, err := os.ReadDir(src)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", "", nil
+	}
+	if err != nil {
+		return "", "", err
+	}
+	if err := os.MkdirAll(dst, 0o700); err != nil {
+		return "", "", err
+	}
+	var linked []string
+	for _, e := range entries {
+		if !e.Type().IsRegular() {
+			continue
+		}
+		target := filepath.Join(dst, e.Name())
+		if err := os.Link(filepath.Join(src, e.Name()), target); err != nil {
+			// Undo only what this call made; the task may be older than it.
+			for _, l := range linked {
+				_ = os.Remove(l)
+			}
+			return "", "", err
+		}
+		linked = append(linked, target)
+	}
+	return src, dst, nil
+}
+
+// RemoveDraft deletes a draft and everything uploaded to it.
+func (s *Store) RemoveDraft(file, draft string) error {
+	dir, err := s.draftDir(file, draft)
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(dir)
 }
 
 // Sweep removes the attachments of every task not in live, returning the ids
-// it removed. live must come from a successful read of the file: an empty set
-// means "no tasks", and would take everything with it.
+// it removed, and any draft older than DraftTTL. live must come from a
+// successful read of the file: an empty set means "no tasks", and would take
+// everything with it.
 func (s *Store) Sweep(file string, live map[string]bool) ([]string, error) {
 	entries, err := os.ReadDir(s.Root(file))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -225,7 +316,32 @@ func (s *Store) Sweep(file string, live map[string]bool) ([]string, error) {
 		}
 		removed = append(removed, e.Name())
 	}
-	return removed, nil
+	return removed, s.sweepDrafts(file)
+}
+
+func (s *Store) sweepDrafts(file string) error {
+	dir := filepath.Join(s.Root(file), draftsDir)
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	cutoff := time.Now().Add(-DraftTTL)
+	for _, e := range entries {
+		if !e.IsDir() || !draftRe.MatchString(e.Name()) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || info.ModTime().After(cutoff) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(dir, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 const maxName = 100

@@ -256,6 +256,8 @@ export default function App() {
           onOpenChange={(next) => !next && setCreatingIn(null)}
           boards={boardNames}
           board={creatingIn ?? boardNames[0] ?? 'Backlog'}
+          attachments={current?.attachments}
+          attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
         />
       )}
     </div>

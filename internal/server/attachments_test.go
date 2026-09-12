@@ -255,3 +255,55 @@ func TestDeletingABoardRemovesItsTasksAttachments(t *testing.T) {
 		t.Error("a deleted board's tasks should take their attachments with them")
 	}
 }
+
+func TestCreatingATaskClaimsItsDraft(t *testing.T) {
+	srv, _ := newTestServer(t)
+	const draft = "0123456789abcdef0123456789abcdef"
+
+	code, out, raw := attachFiles(t, srv, "solo", "../drafts/"+draft, upload{"new shot.png", "PNG"})
+	if code != http.StatusCreated {
+		t.Fatalf("draft upload = %d %s", code, raw)
+	}
+	shot := out.Attachments[0]
+
+	body := mustJSON(t, map[string]string{
+		"title":       "Written with a screenshot",
+		"description": "Look:\n\n" + shot.Markdown,
+		"draft":       draft,
+	})
+	var created taskResponse
+	if code := do(t, srv, "POST", "/api/projects/solo/tasks", body, &created); code != http.StatusCreated {
+		t.Fatalf("create = %d", code)
+	}
+	id := created.Task.ID
+
+	moved := filepath.Join(filepath.Dir(filepath.Dir(filepath.Dir(shot.Path))), id, "new shot.png")
+	want := "Look:\n\n![new shot.png](<" + moved + ">)"
+	if created.Task.Description != want {
+		t.Errorf("description = %q\nwant          %q", created.Task.Description, want)
+	}
+	if !gone(t, filepath.Dir(shot.Path)) {
+		t.Error("the draft should be gone once its task has the files")
+	}
+	resp, got := fetch(t, srv, "/api/projects/solo/attachments/"+id+"/new%20shot.png")
+	if resp.StatusCode != http.StatusOK || got != "PNG" {
+		t.Errorf("claimed file = %d %q", resp.StatusCode, got)
+	}
+
+	// What is in the file, not just the response, points at the task.
+	var board boardResponse
+	do(t, srv, "GET", "/api/projects/solo/board", "", &board)
+	if d := board.Boards[0].Tasks[0].Description; d != want {
+		t.Errorf("description in the file = %q", d)
+	}
+
+	if code, _, _ := attachFiles(t, srv, "solo", "../drafts/tooshort", upload{"a.png", "x"}); code != http.StatusBadRequest {
+		t.Errorf("bad draft id upload = %d", code)
+	}
+	if code := do(t, srv, "POST", "/api/projects/solo/tasks", `{"title":"x","draft":"../../x"}`, nil); code != http.StatusBadRequest {
+		t.Errorf("bad draft id on create = %d", code)
+	}
+	if code := do(t, srv, "POST", "/api/projects/solo/tasks", `{"title":"No files","draft":"fedcba9876543210fedc"}`, nil); code != http.StatusCreated {
+		t.Errorf("a draft nobody uploaded to is fine = %d", code)
+	}
+}

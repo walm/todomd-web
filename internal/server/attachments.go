@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"io"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,7 +61,34 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request, 
 		s.writeError(w, err)
 		return
 	}
+	s.receive(w, r, entry, func(name string, body io.Reader) (attach.Saved, error) {
+		return s.store.Save(entry.File, task.ID, name, body, s.maxAttachment)
+	})
+}
 
+// handleUploadDraftAttachment stores files for a task still being written: the
+// new-task dialog has nothing to attach to until todomd assigns an id. The
+// browser picks a random draft id, and creating the task with it hands the
+// files over (see claimDraft). A draft that never becomes a task is swept
+// after attach.DraftTTL.
+func (s *Server) handleUploadDraftAttachment(w http.ResponseWriter, r *http.Request, entry project.Entry, _ *todomd.Client) {
+	if why := s.attachable(entry); why != "" {
+		s.writeError(w, invalid(why))
+		return
+	}
+	draft := r.PathValue("draft")
+	if !attach.ValidDraft(draft) {
+		s.writeError(w, invalid("a draft id is 16 to 64 lowercase letters and digits"))
+		return
+	}
+	s.receive(w, r, entry, func(name string, body io.Reader) (attach.Saved, error) {
+		return s.store.SaveDraft(entry.File, draft, name, body, s.maxAttachment)
+	})
+}
+
+// receive streams the files of a multipart body through save and answers with
+// what was stored.
+func (s *Server) receive(w http.ResponseWriter, r *http.Request, entry project.Entry, save func(name string, body io.Reader) (attach.Saved, error)) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxAttachmentsPerRequest*s.maxAttachment+1<<20)
 	parts, err := r.MultipartReader()
 	if err != nil {
@@ -71,7 +101,7 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request, 
 		// All or nothing: a half-landed drop would leave files the editor
 		// never linked.
 		for _, a := range saved {
-			s.store.RemoveFile(entry.File, task.ID, a.Name)
+			s.store.Discard(a)
 		}
 		writeJSON(w, status, errorResponse{msg})
 	}
@@ -98,7 +128,7 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request, 
 			fail(http.StatusBadRequest, "too many files in one upload")
 			return
 		}
-		a, err := s.store.Save(entry.File, task.ID, part.FileName(), part, s.maxAttachment)
+		a, err := save(part.FileName(), part)
 		part.Close()
 		if err != nil {
 			var tooBig *http.MaxBytesError
@@ -106,7 +136,7 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request, 
 			case errors.Is(err, attach.ErrTooLarge), errors.As(err, &tooBig):
 				fail(http.StatusRequestEntityTooLarge, part.FileName()+" is larger than "+humanBytes(s.maxAttachment))
 			default:
-				s.log.Error("saving attachment", "project", entry.ID, "task", task.ID, "err", err)
+				s.log.Error("saving attachment", "project", entry.ID, "err", err)
 				fail(http.StatusInternalServerError, "could not save "+part.FileName()+": "+err.Error())
 			}
 			return
@@ -117,8 +147,43 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request, 
 		s.writeError(w, invalid("no file in the upload"))
 		return
 	}
-	s.log.Info("attached", "project", entry.ID, "task", task.ID, "files", len(saved))
+	s.log.Info("attached", "project", entry.ID, "files", len(saved))
 	writeJSON(w, http.StatusCreated, attachmentsResponse{Project: entry.ID, Attachments: saved})
+}
+
+// claimDraft gives a draft's attachments to the task just created from it and
+// points the description's links at their new home. That is a second write,
+// and it cannot be avoided: todomd assigns the id, so the final path is not
+// known until the task exists. Nothing here fails the create — the task is
+// already in the file, and an error would invite a duplicate — and every
+// failure leaves the links resolving: the files stay at the draft's path until
+// the description no longer names it.
+func (s *Server) claimDraft(ctx context.Context, entry project.Entry, client *todomd.Client, draft string, t *todomd.Task) *todomd.Task {
+	if s.attachable(entry) != "" {
+		return t
+	}
+	from, to, err := s.store.Claim(entry.File, draft, t.ID)
+	if err != nil {
+		s.log.Warn("claiming draft attachments", "project", entry.ID, "task", t.ID, "err", err)
+		return t
+	}
+	if from == "" {
+		return t
+	}
+	sep := string(filepath.Separator)
+	if desc := strings.ReplaceAll(t.Description, from+sep, to+sep); desc != t.Description {
+		updated, err := client.Update(ctx, t.ID, todomd.Update{Description: &desc})
+		if err != nil {
+			s.log.Warn("pointing links at the new task", "project", entry.ID, "task", t.ID, "err", err)
+			_ = s.store.RemoveTask(entry.File, t.ID)
+			return t
+		}
+		t = updated
+	}
+	if err := s.store.RemoveDraft(entry.File, draft); err != nil {
+		s.log.Warn("removing claimed draft", "project", entry.ID, "draft", draft, "err", err)
+	}
+	return t
 }
 
 // handleServeAttachment returns a stored file. The URL only ever names a task

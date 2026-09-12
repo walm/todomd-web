@@ -1,4 +1,5 @@
 import type {
+  AttachTo,
   AttachmentsResponse,
   BoardResponse,
   ChangesResponse,
@@ -115,12 +116,14 @@ export const api = {
   deleteTask: (project: string, id: string) =>
     request<void>(`${scope(project)}/tasks/${id}`, { method: 'DELETE' }),
 
-  /** Stores files against a task. Nothing is written to the todo file: each
-   *  attachment comes back with the markdown for the editor to insert. */
-  attach: (project: string, id: string, files: File[]) => {
+  /** Stores files against a task, or a draft of one. Nothing is written to
+   *  the todo file: each attachment comes back with the markdown for the
+   *  editor to insert. */
+  attach: (project: string, to: AttachTo, files: File[]) => {
     const form = new FormData()
     for (const file of files) form.append('file', file, file.name)
-    return request<AttachmentsResponse>(`${scope(project)}/tasks/${id}/attachments`, {
+    const where = 'task' in to ? `tasks/${to.task}` : `drafts/${to.draft}`
+    return request<AttachmentsResponse>(`${scope(project)}/${where}/attachments`, {
       method: 'POST',
       body: form,
     })

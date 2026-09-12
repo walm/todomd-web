@@ -227,3 +227,71 @@ func TestTypesComeFromTheExtension(t *testing.T) {
 		t.Error("only a small allowlist is shown inline")
 	}
 }
+
+func TestClaimHandsADraftToItsTask(t *testing.T) {
+	s := New(t.TempDir())
+	const file, draft = "/src/app/TODO.md", "0123456789abcdef0123"
+
+	shot, err := s.SaveDraft(file, draft, "shot.png", strings.NewReader("png"), MaxSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	from, to, err := s.Claim(file, draft, "3f2a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if from != filepath.Dir(shot.Path) || to != filepath.Join(s.Root(file), "3f2a") {
+		t.Errorf("claim = %q → %q", from, to)
+	}
+	// Both paths resolve until the caller has rewritten the links.
+	for _, p := range []string{shot.Path, filepath.Join(to, "shot.png")} {
+		if data, err := os.ReadFile(p); err != nil || string(data) != "png" {
+			t.Errorf("%s: %q, %v", p, data, err)
+		}
+	}
+	if err := s.RemoveDraft(file, draft); err != nil {
+		t.Fatal(err)
+	}
+	if f, _, err := s.Open(file, "3f2a", "shot.png"); err != nil {
+		t.Errorf("the task keeps the file once the draft is gone: %v", err)
+	} else {
+		f.Close()
+	}
+
+	if from, _, err := s.Claim(file, "ffffffffffffffffffff", "3f2b"); err != nil || from != "" {
+		t.Errorf("claiming an empty draft = %q, %v", from, err)
+	}
+	for _, bad := range []string{"short", "../../../../etc", "UPPERCASEUPPERCASE"} {
+		if _, err := s.SaveDraft(file, bad, "x.txt", strings.NewReader("x"), MaxSize); !errors.Is(err, ErrInvalidDraft) {
+			t.Errorf("SaveDraft(%q): err = %v", bad, err)
+		}
+	}
+}
+
+func TestSweepExpiresDraftsButNotSoon(t *testing.T) {
+	s := New(t.TempDir())
+	const file = "/src/app/TODO.md"
+	stale, fresh := "aaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbb"
+	for _, d := range []string{stale, fresh} {
+		if _, err := s.SaveDraft(file, d, "x.txt", strings.NewReader("x"), MaxSize); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Older than a task's grace, younger than a draft's: a dialog left open.
+	notYet := time.Now().Add(-2 * SweepGrace)
+	old := time.Now().Add(-2 * DraftTTL)
+	drafts := filepath.Join(s.Root(file), draftsDir)
+	_ = os.Chtimes(filepath.Join(drafts, fresh), notYet, notYet)
+	_ = os.Chtimes(filepath.Join(drafts, stale), old, old)
+	_ = os.Chtimes(drafts, old, old)
+
+	if _, err := s.Sweep(file, map[string]bool{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(drafts, stale)); !errors.Is(err, os.ErrNotExist) {
+		t.Error("a day-old draft should be swept")
+	}
+	if _, err := os.Stat(filepath.Join(drafts, fresh)); err != nil {
+		t.Errorf("a draft still being written must survive: %v", err)
+	}
+}

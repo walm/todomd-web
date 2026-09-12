@@ -42,7 +42,7 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const target: AttachTarget = {
     project,
-    task: task.id,
+    to: { task: task.id },
     root: attachments,
     maxBytes: attachmentMaxBytes,
   }

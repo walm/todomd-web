@@ -4,10 +4,11 @@ import { useCreateTask } from '@/api/hooks'
 import type { Priority } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { AttachField } from '@/components/attach-field'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
 import { PrioritySelect } from '@/components/priority-select'
+import { newDraftId } from '@/lib/attach'
 import { parseTags } from '@/lib/tags'
 
 export interface TaskCreateProps {
@@ -17,15 +18,31 @@ export interface TaskCreateProps {
   boards: string[]
   /** Column the "+" was pressed in. */
   board: string
+  /** The project's attachment root; absent when it cannot take attachments. */
+  attachments?: string
+  attachmentMaxBytes: number
 }
 
-export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskCreateProps) {
+export function TaskCreate({
+  project,
+  open,
+  onOpenChange,
+  boards,
+  board,
+  attachments,
+  attachmentMaxBytes,
+}: TaskCreateProps) {
   const [target, setTarget] = useState(board)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState('')
   const [priority, setPriority] = useState<Priority>('normal')
   const [due, setDue] = useState('')
+  // The task has no id until it is created, so files pasted while writing it
+  // are held under a draft that the create call hands over. A fresh one each
+  // time the dialog opens; one abandoned is swept after a day.
+  const [draft, setDraft] = useState(newDraftId)
+  const [uploading, setUploading] = useState(false)
   const create = useCreateTask(project)
 
   useEffect(() => {
@@ -36,12 +53,13 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
       setTags('')
       setPriority('normal')
       setDue('')
+      setDraft(newDraftId())
     }
   }, [open, board])
 
   const submit = () => {
     const trimmed = title.trim()
-    if (!trimmed) return
+    if (!trimmed || uploading) return
     create.mutate(
       {
         board: target,
@@ -50,6 +68,7 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
         tags: parseTags(tags),
         priority,
         due: due || null,
+        draft: attachments ? draft : undefined,
       },
       { onSuccess: () => onOpenChange(false) },
     )
@@ -77,10 +96,21 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
           aria-label="Title"
           autoFocus
         />
-        <Textarea
+        <AttachField
+          target={{
+            project,
+            to: { draft },
+            root: attachments,
+            maxBytes: attachmentMaxBytes,
+          }}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description — markdown, optional"
+          onValueChange={setDescription}
+          onBusyChange={setUploading}
+          placeholder={
+            attachments
+              ? 'Description — markdown, optional. Paste or drop files to attach.'
+              : 'Description — markdown, optional'
+          }
           aria-label="Description"
           className="min-h-24 font-mono text-base md:text-[0.8rem]"
         />
@@ -106,7 +136,11 @@ export function TaskCreate({ project, open, onOpenChange, boards, board }: TaskC
           <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" size="sm" disabled={!title.trim() || create.isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!title.trim() || uploading || create.isPending}
+          >
             {create.isPending && <Loader2 className="animate-spin" />}
             Add task
           </Button>

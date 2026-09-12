@@ -144,6 +144,10 @@ export interface Attachment {
   markdown: string
 }
 
+/** Where an upload goes: an existing task, or the draft of one still being
+ *  written, whose files move to it when it is created. */
+export type AttachTo = { task: string } | { draft: string }
+
 export interface AttachmentsResponse {
   project: string
   attachments: Attachment[]
@@ -162,6 +166,9 @@ export interface NewTask {
   tags?: string[]
   priority?: Priority
   due?: string | null
+  /** The draft files were attached to while writing; they move to the new
+   *  task and the description's links follow. */
+  draft?: string
 }
 
 /** Fields left out are unchanged; `due: null` and `tags: []` clear them. */

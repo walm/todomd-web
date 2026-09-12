@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps, type DragEvent, type 
 import { Loader2, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAttach } from '@/api/hooks'
+import type { AttachTo } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { formatBytes, insertSnippet } from '@/lib/attach'
@@ -10,7 +11,7 @@ import { cn } from '@/lib/utils'
 /** Where files dropped into a field go. */
 export interface AttachTarget {
   project: string
-  task: string
+  to: AttachTo
   /** The project's attachment root; absent when it cannot take attachments
    *  (a project over ssh). */
   root?: string
@@ -95,7 +96,7 @@ export function AttachField({
     // mutateAsync rather than mutate's callbacks, which only fire for the
     // latest call — two quick pastes must both land.
     attach
-      .mutateAsync({ id: target.task, files })
+      .mutateAsync({ to: target.to, files })
       .then(({ attachments }) => {
         const next = insertSnippet(
           latest.current,
