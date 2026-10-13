@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Copy a code block** with the button in its top-right corner, shown on
+  hover in a task's description or comments — and always on touch screens.
+
 ## v0.9.0
 
 - **Attachments.** Paste a screenshot into a task's description or comment

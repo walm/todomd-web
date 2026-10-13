@@ -1,7 +1,11 @@
+import { useEffect, useRef, useState, type ComponentProps } from 'react'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
+import { Check, Copy } from 'lucide-react'
+import { toast } from 'sonner'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
+import { Button } from '@/components/ui/button'
 import { attachmentUrl } from '@/lib/attach'
 import { cn } from '@/lib/utils'
 
@@ -30,7 +34,7 @@ export function Markdown({ children, className, project, attachments }: Markdown
         '[&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold',
         '[&_a]:underline [&_a]:underline-offset-2',
         '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]',
-        '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3',
+        '[&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3',
         '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
         '[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground',
         '[&_table]:my-2 [&_table]:w-full [&_table]:text-left',
@@ -59,10 +63,51 @@ export function Markdown({ children, className, project, attachments }: Markdown
               <img src={src} alt={alt} loading="lazy" {...props} />
             </a>
           ),
+          pre: CodeBlock,
         }}
       >
         {children}
       </ReactMarkdown>
+    </div>
+  )
+}
+
+/** A fenced block with a copy button in its corner, shown on hover or focus —
+ *  and always on touch screens, which have no hover to reveal it. */
+function CodeBlock({ node: _node, ...props }: ComponentProps<'pre'> & { node?: unknown }) {
+  const ref = useRef<HTMLPreElement>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timer)
+  }, [copied])
+
+  async function copy() {
+    // The highlighted spans are only markup; the text is what was written.
+    const text = ref.current?.textContent ?? ''
+    try {
+      await navigator.clipboard.writeText(text.replace(/\n$/, ''))
+      setCopied(true)
+    } catch {
+      toast.error('Could not copy to the clipboard')
+    }
+  }
+
+  return (
+    <div className="group/code relative my-2 first:mt-0 last:mb-0">
+      <pre ref={ref} {...props} />
+      <Button
+        variant="outline"
+        size="icon-xs"
+        aria-label={copied ? 'Copied' : 'Copy code'}
+        title={copied ? 'Copied' : 'Copy code'}
+        onClick={copy}
+        className="absolute top-1.5 right-1.5 opacity-0 transition-opacity group-hover/code:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+      >
+        {copied ? <Check /> : <Copy />}
+      </Button>
     </div>
   )
 }
