@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.10.0
 
 - **Copy a code block** with the button in its top-right corner, shown on
   hover in a task's description or comments — and always on touch screens.
