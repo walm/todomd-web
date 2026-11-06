@@ -105,6 +105,9 @@ type Server struct {
 	// project's change feed was last read. Those events are dropped from
 	// /api/changes so the UI badges an agent's work but not your own.
 	self map[string]map[string]bool
+	// synced caches, per todo file, the folder todomd keeps its synced
+	// todomd.online images in (see synced.go).
+	synced map[string]syncedFolder
 }
 
 // New builds a Server from opts.
@@ -121,6 +124,7 @@ func New(opts Options) *Server {
 		restart:  opts.Restart,
 		clients:  map[string]*todomd.Client{},
 		self:     map[string]map[string]bool{},
+		synced:   map[string]syncedFolder{},
 
 		store:         opts.Attachments,
 		maxAttachment: opts.MaxAttachment,
@@ -182,6 +186,7 @@ func (s *Server) Handler() http.Handler {
 	route("POST", p+"/tasks/{id}/attachments", s.withProject(s.handleUploadAttachment))
 	route("POST", p+"/drafts/{draft}/attachments", s.withProject(s.handleUploadDraftAttachment))
 	route("GET", p+"/attachments/{task}/{name}", s.withProject(s.handleServeAttachment))
+	route("GET", p+"/synced/{att}/{name}", s.withProject(s.handleServeSyncedImage))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorResponse{"no such endpoint"})

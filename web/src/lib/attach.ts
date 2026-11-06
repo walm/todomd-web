@@ -26,23 +26,35 @@ export function insertSnippet(
  *  Returns null for anything else, which the caller treats as it would any
  *  link. Nothing here imports the markdown parser: this module is used by the
  *  editor, which is on the board's first paint, and the parser is not. */
-export function attachmentUrl(url: string, project: string, root?: string): string | null {
+export function attachmentUrl(url: string, project: string, root?: string, synced?: string): string | null {
+  // The markdown pipeline percent-encodes spaces and non-ASCII characters
+  // before a URL gets here; the roots are plain paths.
+  let path = url
+  try {
+    path = decodeURI(url)
+  } catch {
+    // not valid percent-encoding; compare it as written
+  }
+  const p = encodeURIComponent(project)
+  const under = (dir: string) => {
+    const prefix = dir.endsWith('/') ? dir : `${dir}/`
+    if (!path.startsWith(prefix)) return null
+    const rest = path.slice(prefix.length).split('/')
+    return rest.length === 2 && rest.every(Boolean) ? rest : null
+  }
   if (root) {
-    // The markdown pipeline percent-encodes spaces and non-ASCII characters
-    // before a URL gets here; the root is a plain path.
-    let path = url
-    try {
-      path = decodeURI(url)
-    } catch {
-      // not valid percent-encoding; compare it as written
+    const rest = under(root)
+    if (rest) {
+      const [task, name] = rest
+      return `/api/projects/${p}/attachments/${encodeURIComponent(task)}/${encodeURIComponent(name)}`
     }
-    const prefix = root.endsWith('/') ? root : `${root}/`
-    if (path.startsWith(prefix)) {
-      const rest = path.slice(prefix.length).split('/')
-      if (rest.length === 2 && rest.every(Boolean)) {
-        const [task, name] = rest
-        return `/api/projects/${encodeURIComponent(project)}/attachments/${encodeURIComponent(task)}/${encodeURIComponent(name)}`
-      }
+  }
+  // An image synced with todomd.online: <folder>/att_<hash>/<name>.
+  if (synced) {
+    const rest = under(synced)
+    if (rest && /^att_[0-9a-f]{20}$/.test(rest[0])) {
+      const [att, name] = rest
+      return `/api/projects/${p}/synced/${att}/${encodeURIComponent(name)}`
     }
   }
   return null

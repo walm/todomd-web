@@ -52,6 +52,29 @@ describe('attachmentUrl', () => {
   })
 })
 
+describe('attachmentUrl for images synced with todomd.online', () => {
+  const synced = '/Users/jane smith/.local/state/todomd/attachments/prj_8x2k'
+  const att = 'att_5f1c0a9be3d2a7c4b6e8'
+
+  it('serves an image in the synced folder through the API', () => {
+    expect(attachmentUrl(encodeURI(`${synced}/${att}/screenshot.png`), 'app', undefined, synced)).toBe(
+      `/api/projects/app/synced/${att}/screenshot.png`,
+    )
+  })
+
+  it('still serves attachments when both folders are known', () => {
+    const root = '/Users/jane/.local/state/todomd-web/attachments/9c1fa3b2d4e5f607'
+    expect(attachmentUrl(`${root}/3f2a/a.png`, 'app', root, synced)).toBe('/api/projects/app/attachments/3f2a/a.png')
+  })
+
+  it('leaves anything else in or near the folder alone', () => {
+    expect(attachmentUrl(`${synced}/not-an-id/a.png`, 'app', undefined, synced)).toBeNull()
+    expect(attachmentUrl(`${synced}/${att}/deeper/a.png`, 'app', undefined, synced)).toBeNull()
+    expect(attachmentUrl(`${synced}-other/${att}/a.png`, 'app', undefined, synced)).toBeNull()
+    expect(attachmentUrl(`${synced}/${att}/a.png`, 'app', undefined, undefined)).toBeNull()
+  })
+})
+
 describe('newDraftId', () => {
   it('is what the server accepts, and never the same twice', () => {
     const a = newDraftId()

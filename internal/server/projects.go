@@ -30,6 +30,9 @@ type projectJSON struct {
 	// Attachments is the directory this project's attached files live in, so
 	// the UI can recognise links to them; empty when it cannot take any.
 	Attachments string `json:"attachments,omitempty"`
+	// SyncedImages is the directory todomd keeps the images of the
+	// todomd.online project this file is linked to; empty when it isn't.
+	SyncedImages string `json:"syncedImages,omitempty"`
 }
 
 type projectsResponse struct {
@@ -37,8 +40,9 @@ type projectsResponse struct {
 	Configurable bool          `json:"configurable"`
 }
 
-func (s *Server) describe(entry project.Entry) projectJSON {
+func (s *Server) describe(r *http.Request, entry project.Entry) projectJSON {
 	out := describe(entry)
+	out.SyncedImages = s.syncedImages(r, entry)
 	out.PollMs = s.pollFor(entry).Milliseconds()
 	if s.attachable(entry) == "" {
 		out.Attachments = s.store.Root(entry.File)
@@ -70,7 +74,7 @@ func describe(entry project.Entry) projectJSON {
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	out := projectsResponse{Projects: []projectJSON{}, Configurable: s.registry.Configurable()}
 	for _, entry := range s.registry.List() {
-		out.Projects = append(out.Projects, s.describe(entry))
+		out.Projects = append(out.Projects, s.describe(r, entry))
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -153,7 +157,7 @@ func (s *Server) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, invalid(err.Error()))
 		return
 	}
-	writeJSON(w, http.StatusCreated, s.describe(entry))
+	writeJSON(w, http.StatusCreated, s.describe(r, entry))
 }
 
 type renameProjectRequest struct {
@@ -175,7 +179,7 @@ func (s *Server) handleRenameProject(w http.ResponseWriter, r *http.Request) {
 		// The cached client is keyed by id; drop the old key so it is not
 		// left pointing at a project that no longer answers to that name.
 		s.rekey(id, entry.ID)
-		writeJSON(w, http.StatusOK, s.describe(entry))
+		writeJSON(w, http.StatusOK, s.describe(r, entry))
 	case errors.Is(err, project.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, errorResponse{"no such project: " + id})
 	case errors.Is(err, project.ErrNotConfigurable):
@@ -221,7 +225,7 @@ func (s *Server) addRemoteProject(w http.ResponseWriter, r *http.Request, addr t
 		s.writeError(w, invalid(err.Error()))
 		return
 	}
-	writeJSON(w, http.StatusCreated, s.describe(entry))
+	writeJSON(w, http.StatusCreated, s.describe(r, entry))
 }
 
 // handleRemoveProject drops a project from the list. The todo file it points
