@@ -268,6 +268,33 @@ task id (`todomd update 3f2a --title …`), never as a whole-file save — so a
 browser tab left open overnight cannot clobber a morning's worth of agent
 work.
 
+## 🤖 Connect an agent
+
+The robot in the header — and a banner above the board until you dismiss it
+— opens **Connect an agent**: where to start a coding agent (Claude Code,
+Codex, …) and a ready-made prompt to paste into it. The agent then watches
+the board's own `TODO.md` with the todomd CLI. There is no login, no link and
+no sync: the file is the whole connection.
+
+The prompt is built from the board you are looking at — its real file path
+(`-f /path/to/TODO.md` on every command) and its board names — and has the
+agent:
+
+- wait with `todomd changes --wait --as agent --ignore-author agent --json`,
+  which skips its own writes, and write with `--author agent --as agent`;
+- answer a new card in Backlog in one short comment, without starting;
+- pick a card up when you comment **GO** or move it to In Progress, and leave
+  short progress comments;
+- when done, comment what changed and how to check it, and move the card to
+  Done; when stuck, ask on the card; never delete cards.
+
+Those rules sit in their own section of the prompt, marked as yours to
+change. For a project **over ssh**, the dialog says to start the agent on
+that host, in the file's directory, since that is where todomd keeps the lock
+and the change cursor. Needs **todomd v0.10.0 or newer** where the agent
+runs. "Don't show again" on the banner is remembered per browser; the × hides
+it until the next visit.
+
 ## 🧩 The HTTP API
 
 The JSON is todomd's own pinned schema, passed straight through.
