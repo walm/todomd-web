@@ -16,12 +16,15 @@ export interface MarkdownProps {
    *  file loads through the API rather than pointing at a path on disk. */
   project?: string
   attachments?: string
+  /** Where todomd keeps the images synced with todomd.online, so links to
+   *  them load through the API too. */
+  synced?: string
 }
 
 /** Descriptions and comments are verbatim markdown from a file that anyone —
  *  including an agent — can write to, so it is rendered sanitized. Import
  *  this through markdown-lazy so the board doesn't carry the parser. */
-export function Markdown({ children, className, project, attachments }: MarkdownProps) {
+export function Markdown({ children, className, project, attachments, synced }: MarkdownProps) {
   return (
     <div
       className={cn(
@@ -54,7 +57,7 @@ export function Markdown({ children, className, project, attachments }: Markdown
         // that is not an attachment gets the default, which drops unsafe
         // protocols.
         urlTransform={(url) =>
-          attachmentUrl(url, project ?? '', attachments) ?? defaultUrlTransform(url)
+          attachmentUrl(url, project ?? '', attachments, synced) ?? defaultUrlTransform(url)
         }
         components={{
           // A screenshot is read at full size: it opens in a tab of its own.

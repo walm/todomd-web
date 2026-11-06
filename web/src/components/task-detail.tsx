@@ -25,6 +25,8 @@ export interface TaskDetailProps {
   defaultAuthor: string
   /** The project's attachment root; absent when it cannot take attachments. */
   attachments?: string
+  /** Where todomd keeps the images synced with todomd.online, if linked. */
+  syncedImages?: string
   attachmentMaxBytes: number
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -36,6 +38,7 @@ export function TaskDetail({
   boards,
   defaultAuthor,
   attachments,
+  syncedImages,
   attachmentMaxBytes,
   open,
   onOpenChange,
@@ -130,14 +133,14 @@ export function TaskDetail({
             }
           />
         ) : task.description ? (
-          <Markdown project={project} attachments={attachments}>
+          <Markdown project={project} attachments={attachments} synced={syncedImages}>
             {task.description}
           </Markdown>
         ) : (
           <p className="text-sm text-muted-foreground italic">No description</p>
         )}
 
-        <Comments task={task} target={target} defaultAuthor={defaultAuthor} />
+        <Comments task={task} target={target} defaultAuthor={defaultAuthor} synced={syncedImages} />
 
         <div className="flex items-center justify-end gap-2 border-t pt-3">
           {confirmDelete ? (
@@ -276,10 +279,12 @@ function Comments({
   task,
   target,
   defaultAuthor,
+  synced,
 }: {
   task: Task
   target: AttachTarget
   defaultAuthor: string
+  synced?: string
 }) {
   const { project, root } = target
   const [text, setText] = useState('')
@@ -322,7 +327,7 @@ function Comments({
             <span className="font-medium text-foreground">{comment.author}</span>
             {comment.date}
           </p>
-          <Markdown project={project} attachments={root}>
+          <Markdown project={project} attachments={root} synced={synced}>
             {comment.text}
           </Markdown>
         </article>

@@ -82,6 +82,10 @@ export interface Project {
    *  written as absolute paths under it; absent when the project cannot take
    *  attachments, which today means one over ssh. */
   attachments?: string
+  /** The directory todomd keeps the images of the todomd.online project this
+   *  file is linked to; sync links them by absolute path under it. Absent
+   *  when the file isn't linked. */
+  syncedImages?: string
 }
 
 export interface ProjectsResponse {

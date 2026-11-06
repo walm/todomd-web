@@ -368,3 +368,21 @@ func (c *Client) mkdirAll(ctx context.Context, dir string) error {
 	}
 	return nil
 }
+
+// SyncStatus is the part of `todomd sync status --json` todomd-web uses.
+type SyncStatus struct {
+	// Attachments is the folder on this machine holding the images of the
+	// todomd.online project the file is linked to.
+	Attachments string `json:"attachments"`
+}
+
+// SyncStatus reports the file's todomd.online link. A file that isn't
+// linked, or a todomd that predates sync, gives (nil, nil).
+func (c *Client) SyncStatus(ctx context.Context) (*SyncStatus, error) {
+	st, err := runJSON[SyncStatus](ctx, c, "sync", "status", "--json")
+	var e *Error
+	if errors.As(err, &e) {
+		return nil, nil
+	}
+	return st, err
+}

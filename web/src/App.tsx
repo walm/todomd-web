@@ -243,6 +243,7 @@ export default function App() {
           boards={boardNames}
           defaultAuthor={config.data?.author ?? 'user'}
           attachments={current?.attachments}
+          syncedImages={current?.syncedImages}
           attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
           open
           onOpenChange={(next) => !next && closeTask()}

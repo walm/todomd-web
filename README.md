@@ -135,6 +135,15 @@ anything else you type:
 - Up to 25 MB a file. **Projects over ssh cannot take attachments yet**: the
   link would name a file on this machine, which the other host does not have.
 
+**Images synced with todomd.online show too.** When a todo file is linked to
+a [todomd.online](https://todomd.online) project, `todomd sync` keeps the
+project's images in todomd's own folder and links them by absolute path — the
+ones you `todomd attach`, and the ones pasted on the online board. The board
+asks todomd where that folder is (`todomd sync status --json`, re-asked at
+most every 30 seconds) and shows the images in it inline, like attachments.
+Only PNG, JPEG, GIF and WebP files inside that folder are served. Needs a
+todomd with sync; without one, nothing changes.
+
 ## 🗂️ Several projects
 
 Every todo file you register is a project, and the header switches between
@@ -285,6 +294,7 @@ server remembering which one you are looking at.
 | `POST` | `/api/projects/{project}/tasks/{id}/attachments` | `multipart/form-data` with one or more `file` parts → `{attachments: [{name, path, size, type, markdown}]}`; writes nothing to the todo file |
 | `POST` | `/api/projects/{project}/drafts/{draft}/attachments` | as above, for a task not created yet; `draft` is 16–64 lowercase letters and digits of your choosing, and an unclaimed one is swept after a day |
 | `GET` | `/api/projects/{project}/attachments/{task}/{name}` | — the file |
+| `GET` | `/api/projects/{project}/synced/{att}/{name}` | — an image synced with todomd.online, from the folder todomd reports (`syncedImages` on the project) |
 | `DELETE` | `/api/projects/{project}/boards/{board}` | — ; `?force=true` is required when the board still holds tasks, which are deleted with it |
 
 Errors come back as `{"error": "…"}` with todomd's own message: `404` no such

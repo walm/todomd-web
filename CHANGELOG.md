@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Images synced with todomd.online show on the board.** For a todo file
+  linked to a todomd.online project, the images `todomd sync` keeps — attached
+  with `todomd attach` or pasted on the online board — display inline, served
+  from the folder todomd reports. Needs a todomd with sync.
+
 ## v0.10.0
 
 - **Copy a code block** with the button in its top-right corner, shown on
