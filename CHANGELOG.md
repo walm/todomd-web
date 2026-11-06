@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.11.0
 
 - **Images synced with todomd.online show on the board.** For a todo file
   linked to a todomd.online project, the images `todomd sync` keeps — attached
