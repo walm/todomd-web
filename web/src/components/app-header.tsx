@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Columns3, List, Plus, RefreshCw, Search, X } from 'lucide-react'
+import { Bot, Columns3, List, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -21,6 +21,8 @@ export interface AppHeaderProps {
   refreshing: boolean
   unreadCount: number
   onClearUnread: () => void
+  /** Opens the "Connect an agent" help; absent when there is no board. */
+  onAgentSetup?: () => void
 }
 
 export function AppHeader({
@@ -36,6 +38,7 @@ export function AppHeader({
   refreshing,
   unreadCount,
   onClearUnread,
+  onAgentSetup,
 }: AppHeaderProps) {
   const search = useRef<HTMLInputElement>(null)
 
@@ -136,6 +139,20 @@ export function AppHeader({
         >
           <RefreshCw className={cn(refreshing && 'animate-spin')} />
         </Button>
+        {/* Below 360px it would squeeze the filter to nothing; the banner
+            still offers the setup there. */}
+        {onAgentSetup && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Connect an agent"
+            title="Connect an agent"
+            className="max-[359px]:hidden"
+            onClick={onAgentSetup}
+          >
+            <Bot />
+          </Button>
+        )}
         <ThemeToggle />
         <Button size="sm" onClick={onAdd} disabled={!canEdit}>
           <Plus />

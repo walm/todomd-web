@@ -3,6 +3,8 @@ import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useBoard, useConfig, useMoveTask, useProjects } from '@/api/hooks'
 import type { Task } from '@/api/types'
+import { AgentBanner } from '@/components/agent-banner'
+import { AgentSetup } from '@/components/agent-setup'
 import { AppHeader } from '@/components/app-header'
 import { BoardColumn } from '@/components/board-column'
 import { BoardList } from '@/components/board-list'
@@ -28,6 +30,7 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [creatingIn, setCreatingIn] = useState<string | null>(null)
   const [switching, setSwitching] = useState(false)
+  const [agentOpen, setAgentOpen] = useState(false)
   const { view, toggle: toggleView } = useView()
 
   useEffect(() => {
@@ -107,7 +110,7 @@ export default function App() {
   }, [currentId])
 
   const boards = useMemo(() => board.data?.boards ?? [], [board.data])
-  const boardNames = boards.map((b) => b.name)
+  const boardNames = useMemo(() => boards.map((b) => b.name), [boards])
   const filtered = useMemo(() => filterBoards(boards, query), [boards, query])
   // Pre-filter counts, so a filtered view can still say what it is hiding.
   const totals = useMemo(
@@ -172,7 +175,10 @@ export default function App() {
         refreshing={board.isFetching || projects.isFetching}
         unreadCount={count}
         onClearUnread={() => currentId && markAllRead(currentId)}
+        onAgentSetup={current && board.isSuccess ? () => setAgentOpen(true) : undefined}
       />
+
+      {current && board.isSuccess && <AgentBanner onSetUp={() => setAgentOpen(true)} />}
 
       <main className="min-h-0 grow">
         {noProjects && (
@@ -247,6 +253,16 @@ export default function App() {
           attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
           open
           onOpenChange={(next) => !next && closeTask()}
+        />
+      )}
+
+      {current && (
+        <AgentSetup
+          open={agentOpen}
+          onOpenChange={setAgentOpen}
+          project={current}
+          boards={boardNames}
+          todomdVersion={config.data?.todomdVersion}
         />
       )}
 

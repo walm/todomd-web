@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Connect an agent.** A button in the header, and a banner you can dismiss,
+  open a ready-made prompt for a coding agent to work the board: it watches
+  the project's `TODO.md` with `todomd changes --wait`, answers new cards,
+  starts on GO and moves cards to Done, with the rules in a section of their
+  own to edit. The prompt uses the board's real file path and board names,
+  and for a project over ssh says to run the agent on that host. No login or
+  sync involved. Needs todomd v0.10.0 or newer where the agent runs.
+
 ## v0.11.0
 
 - **Images synced with todomd.online show on the board.** For a todo file
