@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.12.0
 
 - **Connect an agent.** A button in the header, and a banner you can dismiss,
   open a ready-made prompt for a coding agent to work the board: it watches
