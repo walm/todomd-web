@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.14.0
 
 - **A simpler "Connect an agent".** The only thing to run yourself is
   getting todomd v0.13.0 or newer; then start your agent in the file's
