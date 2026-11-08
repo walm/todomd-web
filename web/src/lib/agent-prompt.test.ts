@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   agentPrompt,
+  fileFlag,
   fileLocation,
   flowBoards,
+  onlineCommands,
+  setupCommands,
   shellQuote,
   startCommands,
+  todomdNewEnough,
   todomdTooOld,
 } from './agent-prompt'
 
@@ -81,50 +85,97 @@ describe('startCommands', () => {
   })
 })
 
+describe('fileFlag', () => {
+  it('needs no -f for a TODO.md, which todomd finds from its folder', () => {
+    expect(fileFlag(local)).toBe('')
+    expect(fileFlag(remote)).toBe('')
+  })
+
+  it('points at a file with another name', () => {
+    expect(fileFlag({ name: 'n', file: '/a b/notes.md' })).toBe(" -f '/a b/notes.md'")
+    expect(fileFlag({ name: 'n', file: 'web1:/srv/plan.md', host: 'web1' })).toBe(
+      ' -f /srv/plan.md',
+    )
+  })
+})
+
+describe('setup commands', () => {
+  it('is only getting a new enough todomd: the agent reads the skill itself', () => {
+    expect(setupCommands('v0.13.0')).toEqual([])
+    expect(setupCommands('v0.12.0')).toEqual(['todomd upgrade'])
+    expect(setupCommands(undefined)).toEqual(['todomd upgrade'])
+    expect(setupCommands('v0.9.0').join(' ')).not.toMatch(/skill|login|link/)
+  })
+
+  it('logs in and links a board that is not on todomd.online yet', () => {
+    expect(onlineCommands(local, false)).toEqual(['todomd login', 'todomd link'])
+    expect(onlineCommands({ name: 'n', file: '/x/plan.md' }, false)).toEqual([
+      'todomd login',
+      'todomd link -f /x/plan.md',
+    ])
+  })
+
+  it('only logs in for a board that is linked already', () => {
+    expect(onlineCommands(local, true)).toEqual(['todomd login'])
+  })
+})
+
 describe('agentPrompt', () => {
   const prompt = agentPrompt({ project: local, boards: ['Inbox', 'Doing', 'Done'] })
 
-  it('names the project, its file and its boards', () => {
-    expect(prompt).toContain('the todomd board "todomd-web"')
-    expect(prompt).toContain('live in\n/Users/me/src/todomd-web/TODO.md, which I have open')
+  it('starts by having the agent read the skill itself', () => {
+    expect(prompt.split('\n').slice(0, 2)).toEqual([
+      'Before you start: run `todomd skill` and follow it (or',
+      '`todomd skill --install` to keep it as a skill).',
+    ])
+  })
+
+  it('names the project and its file', () => {
+    expect(prompt).toContain('work from my board "todomd-web" (/Users/me/src/todomd-web/TODO.md).')
+    expect(prompt).not.toContain('-f ')
+  })
+
+  it('loops on todomd watch, skipping its own writes', () => {
+    expect(prompt).toContain('\n  todomd watch --as agent --ignore-author agent --json\n')
+    expect(prompt).toContain('in a loop')
+    expect(prompt).toContain('--timeout 100s')
+  })
+
+  it('leaves the rest to the skill', () => {
+    expect(prompt).not.toMatch(/todomd (sync|changes|comment|move|show)/)
+    expect(prompt).not.toMatch(/ssh|login|link/i)
+    expect(prompt.split('\n').length).toBeLessThan(30)
+  })
+
+  it('keeps the rules in their own section to edit, with the real board names', () => {
+    expect(prompt).toContain('## Rules (change these to fit how you work)')
     expect(prompt).toContain('New card in "Inbox"')
     expect(prompt).toContain('move it to "Doing"')
     expect(prompt).toContain('move the card to "Done"')
-  })
-
-  it('points every command at the file', () => {
-    const f = '-f /Users/me/src/todomd-web/TODO.md'
-    expect(prompt).toContain(
-      `todomd changes --wait --as agent --ignore-author agent --json ${f}`,
-    )
-    expect(prompt).toContain(`todomd show <id> ${f}`)
-    expect(prompt).toContain(`todomd comment <id> "<text>" --author agent --as agent ${f}`)
-    expect(prompt).toContain(`todomd move <id> --to "<board>" --as agent ${f}`)
-  })
-
-  it('keeps the rules in their own section to edit', () => {
-    expect(prompt).toContain('## Rules (change these to fit how you work)')
     expect(prompt).toContain('"GO"')
     expect(prompt).toContain('Never delete cards')
   })
 
-  it('says nothing about ssh, login or sync for a local file', () => {
-    expect(prompt).not.toMatch(/ssh|login|sync|link/i)
+  it('passes -f everywhere for a file todomd would not find', () => {
+    const p = agentPrompt({ project: { name: 'n', file: '/a b/plan.md' }, boards: [] })
+    expect(p).toContain("Pass `-f '/a b/plan.md'` to every todomd command.")
+    expect(p).toContain("--json -f '/a b/plan.md'\n")
   })
 
   it('uses the path on the host for a project over ssh', () => {
     const p = agentPrompt({ project: remote, boards: ['Backlog', 'In Progress', 'Done'] })
-    expect(p).toContain('/srv/app/TODO.md on this machine (deploy@web1)')
-    expect(p).toContain('--json -f /srv/app/TODO.md')
+    expect(p).toContain('run `todomd skill` here on deploy@web1 and follow it')
+    expect(p).toContain('(/srv/app/TODO.md, here on deploy@web1)')
     expect(p).not.toContain('deploy@web1:/srv')
   })
 
-  it('quotes a path with spaces', () => {
-    const p = agentPrompt({ project: { name: 'n', file: '/a b/TODO.md' }, boards: [] })
-    expect(p).toContain("--json -f '/a b/TODO.md'")
+  it("uses todomd's default boards when there are none", () => {
+    const p = agentPrompt({ project: local, boards: [] })
+    expect(p).toContain('New card in "Backlog"')
+    expect(p).toContain('"In Progress"')
   })
 
-  it('quotes board names safely for the shell', () => {
+  it('quotes board names safely', () => {
     const p = agentPrompt({ project: local, boards: ['Back"log', 'In $Progress', 'Done'] })
     expect(p).toContain('"Back\\"log"')
     expect(p).toContain('"In \\$Progress"')
@@ -132,26 +183,28 @@ describe('agentPrompt', () => {
 
   it('can write as another name', () => {
     const p = agentPrompt({ project: local, boards: [], agent: 'claude' })
-    expect(p).toContain('--as claude --ignore-author claude')
-    expect(p).toContain('--author claude --as claude')
+    expect(p).toContain('todomd watch --as claude --ignore-author claude --json')
   })
 })
 
-describe('todomdTooOld', () => {
-  it('flags versions without changes --wait', () => {
-    expect(todomdTooOld('v0.9.0')).toBe(true)
+describe('todomd versions', () => {
+  it('flags versions without watch and skill', () => {
+    expect(todomdTooOld('v0.12.0')).toBe(true)
     expect(todomdTooOld('v0.9.12')).toBe(true)
+    expect(todomdNewEnough('v0.12.9')).toBe(false)
   })
 
-  it('accepts v0.10.0 and newer', () => {
-    expect(todomdTooOld('v0.10.0')).toBe(false)
-    expect(todomdTooOld('0.11.2')).toBe(false)
-    expect(todomdTooOld('v1.0.0')).toBe(false)
+  it('accepts v0.13.0 and newer', () => {
+    for (const v of ['v0.13.0', '0.13.2', 'v0.14.0', 'v1.0.0']) {
+      expect(todomdTooOld(v)).toBe(false)
+      expect(todomdNewEnough(v)).toBe(true)
+    }
   })
 
-  it('gives an unknown version the benefit of the doubt', () => {
-    expect(todomdTooOld('unknown')).toBe(false)
-    expect(todomdTooOld('dev')).toBe(false)
-    expect(todomdTooOld(undefined)).toBe(false)
+  it('gives an unknown version the benefit of the doubt, without vouching for it', () => {
+    for (const v of ['unknown', 'dev', undefined]) {
+      expect(todomdTooOld(v)).toBe(false)
+      expect(todomdNewEnough(v)).toBe(false)
+    }
   })
 })

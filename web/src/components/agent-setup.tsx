@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Project } from '@/api/types'
@@ -8,7 +8,10 @@ import {
   MIN_TODOMD,
   agentPrompt,
   fileLocation,
+  onlineCommands,
+  setupCommands,
   startCommands,
+  todomdNewEnough,
   todomdTooOld,
 } from '@/lib/agent-prompt'
 
@@ -58,10 +61,24 @@ function CommandLine({ command }: { command: string }) {
   )
 }
 
+/** A numbered step of the setup. */
+function Step({ n, title, children }: { n: number; title: ReactNode; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="font-medium">
+        {n}. {title}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
 /**
- * "Connect an agent": how to have a coding agent work this board. It watches
- * the project's TODO.md with the todomd CLI, on the machine the file is on —
- * nothing goes through todomd-web, and nothing here is saved.
+ * "Connect an agent": how to have a coding agent work this board. A person
+ * only gets todomd (and, for todomd.online, logs in); the prompt has the
+ * agent read todomd's skill and loop on `todomd watch`, which also syncs a
+ * board linked to todomd.online. It runs on the machine the file is on.
+ * Nothing goes through todomd-web, and nothing here is saved.
  */
 export function AgentSetup({
   open,
@@ -78,10 +95,15 @@ export function AgentSetup({
   todomdVersion?: string
 }) {
   const { host } = fileLocation(project)
+  // Only known for a local file: todomd-web doesn't ask a host about links.
+  const linked = !host && Boolean(project.syncedImages)
   const commands = useMemo(() => startCommands(project), [project])
+  const online = useMemo(() => onlineCommands(project, linked), [project, linked])
   const prompt = useMemo(() => agentPrompt({ project, boards }), [project, boards])
   const { copied, copy } = useCopy()
   const tooOld = !host && todomdTooOld(todomdVersion)
+  const newEnough = !host && todomdNewEnough(todomdVersion)
+  const code = (s: string) => <code className="font-mono">{s}</code>
 
   return (
     <ResponsiveDialog
@@ -91,58 +113,90 @@ export function AgentSetup({
       description="Let a coding agent (Claude Code, Codex, …) answer and pick up cards on this board."
     >
       <div className="flex flex-col gap-5 text-sm">
-        <section className="flex flex-col gap-2">
-          <h3 className="font-medium">
-            1. Open a terminal {host ? <>on {host}</> : 'next to the file'}
-          </h3>
-          <p className="text-muted-foreground">
-            {host ? (
-              <>
-                This project&apos;s file is on <span className="font-mono">{host}</span>, so the
-                agent runs there, where todomd keeps the file&apos;s lock and change cursor.
-              </>
-            ) : (
-              <>
-                The agent works on this project&apos;s todo file directly, on this computer: no
-                login and no sync. Start it in the project&apos;s folder.
-              </>
-            )}
-          </p>
-          {commands.map((cmd) => (
-            <CommandLine key={cmd} command={cmd} />
-          ))}
+        <Step
+          n={1}
+          title={
+            <>
+              Get todomd {MIN_TODOMD} or newer{host ? <> on {host}</> : null}
+            </>
+          }
+        >
           {tooOld ? (
             <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                This machine has todomd {todomdVersion}; the prompt needs {MIN_TODOMD} or newer.
-                Run <code className="font-mono">todomd upgrade</code> first.
+                This machine has todomd {todomdVersion}, too old for the prompt below.
+                Upgrade it first:
               </span>
             </p>
+          ) : newEnough ? (
+            <p className="flex items-start gap-1.5 text-muted-foreground">
+              <Check className="mt-0.5 size-3.5 shrink-0" />
+              <span>This machine has todomd {todomdVersion}.</span>
+            </p>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              Needs todomd {MIN_TODOMD} or newer{host ? ' on that host' : ''}.
+            <p className="text-muted-foreground">
+              {host ? <>The agent uses the todomd on {host}. </> : null}
+              Check with {code('todomd --version')}, and upgrade an older one:
             </p>
           )}
-        </section>
+          {setupCommands(host ? undefined : todomdVersion).map((cmd) => (
+            <CommandLine key={cmd} command={cmd} />
+          ))}
+          <p className="text-xs text-muted-foreground">
+            {host ? (
+              <>
+                If the file is linked to todomd.online, also run {code('todomd login')} once on{' '}
+                {host} (you approve it in the browser).
+              </>
+            ) : linked ? (
+              <>
+                This board is linked to todomd.online. If this machine isn&apos;t logged in yet,
+                run {code('todomd login')} once (you approve it in the browser).
+              </>
+            ) : (
+              <>
+                That&apos;s all for a local board. To have it on todomd.online too, run{' '}
+                {online.map((cmd, i) => (
+                  <span key={cmd}>
+                    {i > 0 ? ', then ' : null}
+                    {code(cmd)}
+                  </span>
+                ))}{' '}
+                in its folder; {code('todomd login')} is once per machine (you approve it in the
+                browser).
+              </>
+            )}
+          </p>
+        </Step>
 
-        <section className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="font-medium">2. Give your agent this prompt</h3>
+        <Step
+          n={2}
+          title={
+            <>
+              Start your agent {host ? <>on {host}</> : 'next to the file'} and give it this
+              prompt
+            </>
+          }
+        >
+          {commands.map((cmd) => (
+            <CommandLine key={cmd} command={cmd} />
+          ))}
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-muted-foreground">
+              It has the agent read todomd&apos;s skill, then watch the board. The <em>Rules</em>{' '}
+              section is yours to change: edit it to match how you like to work. The agent&apos;s
+              comments turn up on the board badged, like any other change.
+            </p>
             <Button size="sm" variant="outline" onClick={() => void copy(prompt)}>
               {copied ? <Check /> : <Copy />}
               {copied ? 'Copied' : 'Copy prompt'}
             </Button>
           </div>
-          <p className="text-muted-foreground">
-            Start the agent there and paste it. The <em>Rules</em> section is yours to change:
-            copy the prompt, then edit it to match how you like to work. The agent&apos;s
-            comments turn up on the board badged, like any other change.
-          </p>
           <pre className="overflow-auto md:max-h-80 rounded-lg border bg-muted/50 p-3 font-mono text-[0.75rem] leading-relaxed whitespace-pre-wrap">
             {prompt}
           </pre>
-        </section>
+        </Step>
       </div>
     </ResponsiveDialog>
   )
