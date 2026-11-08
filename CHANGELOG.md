@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.13.0
 
 - **What to look at, across projects.** The project switcher counts, per
   project, the cards that changed since you last looked — green if any is
