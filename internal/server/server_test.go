@@ -550,3 +550,50 @@ func TestDeletedBoardsTasksDoNotBadgeAsUnread(t *testing.T) {
 		}
 	}
 }
+
+// titlesOf reads a project's feed and returns the titles it reported.
+func titlesOf(t *testing.T, srv *httptest.Server, path string) map[string]bool {
+	t.Helper()
+	var ch changesResponse
+	if code := do(t, srv, "GET", path, "", &ch); code != http.StatusOK {
+		t.Fatalf("GET %s = %d", path, code)
+	}
+	titles := map[string]bool{}
+	for _, e := range ch.Events {
+		titles[e.Title] = true
+	}
+	return titles
+}
+
+func TestPeekCountsWithoutTakingTheChanges(t *testing.T) {
+	srv, file := newTestServer(t)
+	const peek = "/api/projects/solo/changes?peek=true"
+	const read = "/api/projects/solo/changes"
+
+	// Nobody has opened this project here yet; a peek has to start the
+	// cursor itself, or the switcher would count nothing for it for ever.
+	if got := titlesOf(t, srv, peek); len(got) != 0 {
+		t.Fatalf("first peek reported %v", got)
+	}
+
+	do(t, srv, "POST", "/api/projects/solo/tasks", `{"title":"typed in the browser"}`, &taskResponse{})
+	cli(t, file, "add", "written by an agent", "--board", "Backlog")
+
+	// Peeking twice reports the same, and never our own edit.
+	for range 2 {
+		got := titlesOf(t, srv, peek)
+		if !got["written by an agent"] || got["typed in the browser"] {
+			t.Fatalf("peek = %v, want only the agent's card", got)
+		}
+	}
+
+	// The board's read still gets everything, still without our own edit:
+	// the peeks neither advanced the cursor nor forgot what we changed.
+	got := titlesOf(t, srv, read)
+	if !got["written by an agent"] || got["typed in the browser"] {
+		t.Fatalf("read = %v, want only the agent's card", got)
+	}
+	if got := titlesOf(t, srv, peek); len(got) != 0 {
+		t.Errorf("peek after the read = %v, want nothing", got)
+	}
+}

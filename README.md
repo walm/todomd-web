@@ -210,9 +210,15 @@ URL follows the new name, and so does the board you are looking at.
 **Removing takes the project off the list and does nothing else: the file
 stays exactly where it is.**
 
-The switcher shows an unread count per project, so an agent working in a repo
-you are not currently looking at is visible without opening it. Each project
-keeps its own `todomd changes` cursor, so those counts never bleed together.
+The switcher shows, per project, how many cards changed since you last
+looked — green if any of them is new, amber if they are only changed, like
+the card badges — and the switcher button adds up the other projects, so an
+agent working in a repo you are not looking at is visible without opening
+it. Your own edits never count. Those projects are only peeked at (`todomd
+changes --peek`), on load and when the window regains focus: their changes
+stay waiting for the board, so opening the project still badges every card.
+A slow project over ssh just shows its count late. Each project keeps its own
+cursor, so the counts never bleed together.
 
 ## 🔒 It listens on localhost only
 

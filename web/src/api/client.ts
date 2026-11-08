@@ -82,6 +82,10 @@ export const api = {
 
   changes: (project: string) => request<ChangesResponse>(`${scope(project)}/changes`),
 
+  /** The same feed without advancing the cursor or forgetting this server's
+   *  own edits: how the switcher counts a project you are not looking at. */
+  peek: (project: string) => request<ChangesResponse>(`${scope(project)}/changes?peek=true`),
+
   /** Deletes a board. force is required when it still holds tasks, because
    *  todomd deletes those with it. */
   deleteBoard: (project: string, board: string, force: boolean) =>

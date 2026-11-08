@@ -121,18 +121,35 @@ type changesResponse struct {
 // handleChanges reports what changed in one project since this server last
 // looked, dropping the events it caused itself. Reading advances todomd's
 // cursor for that file, so each event is delivered once.
+//
+// With ?peek=true it reports the same without advancing the cursor or
+// forgetting what this server changed: that is how the switcher counts the
+// projects you are not looking at, leaving their events for the board to
+// pick up when you open it — here or in another browser.
 func (s *Server) handleChanges(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
-	ch, err := client.Changes(r.Context(), s.cursor, false)
+	peek := r.URL.Query().Get("peek") == "true"
+	ch, err := client.Changes(r.Context(), s.cursor, peek)
+	if err == nil && peek && ch.Initialized {
+		// A peek never creates the cursor, so a project nobody has opened
+		// here would count nothing for ever. Creating it reports nothing
+		// either way; from here on, changes count.
+		ch, err = client.Changes(r.Context(), s.cursor, false)
+	}
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
-	own := s.takeSelf(entry.ID)
+	var own map[string]bool
+	if peek {
+		own = s.ownChanges(entry.ID)
+	} else {
+		own = s.takeSelf(entry.ID)
+	}
 	events := []todomd.Event{}
 	for _, e := range ch.Events {
 		// Whoever deleted it — an agent, the TUI, a git pull — its
-		// attachments go with it.
-		if e.Type == todomd.TaskDeleted {
+		// attachments go with it. A peek leaves that to the real read.
+		if e.Type == todomd.TaskDeleted && !peek {
 			s.forgetAttachments(entry, e.TaskID)
 		}
 		if own[e.TaskID] {

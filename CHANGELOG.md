@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **What to look at, across projects.** The project switcher counts, per
+  project, the cards that changed since you last looked — green if any is
+  new, amber if they are only changed, the same colours as the card badges —
+  and the switcher button shows the total for the other projects (the open
+  board keeps its own unread count). Your own edits don't count. The other
+  projects are peeked at with `todomd changes --peek` on load and on focus,
+  not on a timer, so counting no longer takes their changes: opening one
+  badges every card, in this browser or another. A slow project over ssh
+  only leaves its own count missing for a while.
+
 ## v0.12.0
 
 - **Connect an agent.** A button in the header, and a banner you can dismiss,
