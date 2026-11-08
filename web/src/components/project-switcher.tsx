@@ -14,13 +14,16 @@ import { useAddProject, useRemoveProject, useRenameProject } from '@/api/hooks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
+import { UnreadCount } from '@/components/unread-count'
+import { describeUnread, total, type UnreadSummary } from '@/hooks/use-unread'
 import { cn } from '@/lib/utils'
 
 export interface ProjectSwitcherProps {
   projects: Project[]
   current: Project | undefined
-  /** Unread count for a project, for the dot next to its name. */
-  unreadFor: (id: string) => number
+  /** What a project's board would badge if opened now, for the count next
+   *  to its name. */
+  unreadFor: (id: string) => UnreadSummary
   onSelect: (id: string) => void
   /** Renaming changes the project's id, so the app has to follow it: move the
    *  unread marks across and, if it is the one on screen, the URL too. */
@@ -55,6 +58,9 @@ export function ProjectSwitcher({
   // One project and no way to add another: there is nothing to switch to, so
   // the header just says where you are.
   const single = projects.length <= 1 && !configurable
+  // The button carries the other projects' cards; the open board's own are
+  // on the board, and in the header's "unread".
+  const elsewhere = total(projects.filter((p) => p.id !== current?.id).map((p) => unreadFor(p.id)))
 
   return (
     <>
@@ -62,7 +68,13 @@ export function ProjectSwitcher({
         variant="ghost"
         size="sm"
         className={cn('-ml-1 gap-1.5 px-1.5 font-semibold', single && 'pointer-events-none')}
-        aria-label={single ? undefined : 'Switch project'}
+        aria-label={
+          single
+            ? undefined
+            : elsewhere.count > 0
+              ? `Switch project (other projects: ${describeUnread(elsewhere)})`
+              : 'Switch project'
+        }
         onClick={() => !single && onOpenChange(true)}
       >
         {/* A fixed cap, not a percentage: percentages contribute nothing to
@@ -71,7 +83,12 @@ export function ProjectSwitcher({
         <span className="max-w-32 truncate sm:max-w-56">
           {current?.name ?? 'No project'}
         </span>
-        {!single && <ChevronsUpDown className="opacity-50" />}
+        <UnreadCount summary={elsewhere} label="In other projects:" />
+        {/* On a phone the count stands in for the chevron: the header has
+            no width to spare, and a count says "there is more" just as well. */}
+        {!single && (
+          <ChevronsUpDown className={cn('opacity-50', elsewhere.count > 0 && 'max-sm:hidden')} />
+        )}
       </Button>
 
       <ResponsiveDialog
@@ -115,14 +132,7 @@ export function ProjectSwitcher({
                   <span className="min-w-0 grow">
                     <span className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{project.name}</span>
-                      {unread > 0 && (
-                        <span
-                          className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/15 px-1 text-[0.65rem] font-medium text-emerald-700 tabular-nums dark:text-emerald-300"
-                          title={`${unread} unread`}
-                        >
-                          {unread}
-                        </span>
-                      )}
+                      <UnreadCount summary={unread} />
                       {project.host && (
                         <span
                           className="inline-flex items-center gap-1 text-xs text-muted-foreground"

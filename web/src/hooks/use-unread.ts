@@ -59,43 +59,144 @@ function kindOf(event: ChangeEvent): UnreadKind | null {
   }
 }
 
+/** Applies a feed to one project's marks, the way the board badges cards:
+ *  added is new, anything else done to a card is changed, and a card you have
+ *  never seen stays new. A deleted card has nothing left to badge. */
+export function fold(
+  marks: Record<string, UnreadKind> | undefined,
+  events: ChangeEvent[],
+): Record<string, UnreadKind> {
+  const next = { ...(marks ?? {}) }
+  for (const event of events) {
+    const kind = kindOf(event)
+    if (!kind) {
+      delete next[event.task]
+      continue
+    }
+    next[event.task] = next[event.task] === 'new' ? 'new' : kind
+  }
+  return next
+}
+
+/** How many cards in a project are waiting to be looked at, and how many of
+ *  those are new. */
+export interface UnreadSummary {
+  count: number
+  fresh: number
+}
+
+export const NOTHING_UNREAD: UnreadSummary = { count: 0, fresh: 0 }
+
+export function summarize(marks: Record<string, UnreadKind> | undefined): UnreadSummary {
+  const kinds = Object.values(marks ?? {})
+  return { count: kinds.length, fresh: kinds.filter((k) => k === 'new').length }
+}
+
+/** Several projects' counts as one, for the switcher button. */
+export function total(summaries: UnreadSummary[]): UnreadSummary {
+  return summaries.reduce(
+    (sum, s) => ({ count: sum.count + s.count, fresh: sum.fresh + s.fresh }),
+    NOTHING_UNREAD,
+  )
+}
+
+/** The colour a count wears, matching the card badges: green if any card it
+ *  counts is new, amber if they are only changed, nothing when it is zero. */
+export function toneOf(summary: UnreadSummary): UnreadKind | null {
+  if (summary.count === 0) return null
+  return summary.fresh > 0 ? 'new' : 'changed'
+}
+
+/** Says what a count is made of, for its tooltip and screen readers. */
+export function describeUnread({ count, fresh }: UnreadSummary): string {
+  const changed = count - fresh
+  const parts = [fresh > 0 && `${fresh} new`, changed > 0 && `${changed} changed`].filter(Boolean)
+  return `${parts.join(', ')} since you last looked`
+}
+
 export interface UnreadOptions {
   /** The project on screen; its feed is read on every focus, and on the
    *  same timer as its board so badges appear with the cards they mark. */
   current: string | undefined
   /** Refresh interval in ms for the current project, 0 when off. */
   pollMs?: number
-  /** Everything on the list; their feeds are read too, so the switcher can
-   *  show which other projects an agent has touched. */
+  /** Everything on the list; the others are peeked at too, so the switcher
+   *  can show which of them an agent has touched. */
   projects: Project[]
-  /** Whether to read the other projects' feeds at all. */
+  /** Whether to peek at the other projects at all. */
   includeOthers: boolean
 }
+
+// How long another project's count is trusted before a focus asks again. A
+// project over ssh is an ssh round trip per peek, so it is asked less often.
+const PEEK_STALE_LOCAL = 15_000
+const PEEK_STALE_REMOTE = 60_000
 
 /**
  * Unread badges, driven by `todomd changes`: the server reports what other
  * writers (an agent, the TUI, a git pull) did since this browser last looked,
- * and drops the changes the UI made itself. Reading the feed advances that
- * project's cursor, so the marks are kept here — in localStorage — until the
- * card is opened.
+ * and drops the changes the UI made itself. Reading the open project's feed
+ * advances its cursor, so its marks are kept here — in localStorage — until
+ * the card is opened.
+ *
+ * The other projects are only peeked at: their counts are what their boards
+ * would badge if opened now — the marks kept here plus whatever is still
+ * waiting on the cursor — and the events stay there until you do open one,
+ * in this browser or another. Peeks run on load and on focus, never on a
+ * timer, and each is its own request, so a slow ssh project only leaves its
+ * own count missing for a while.
  */
 export function useUnread({ current, projects, includeOthers, pollMs = 0 }: UnreadOptions) {
   const [unread, setUnread] = useState<UnreadState>(load)
   const applied = useRef(new Set<ChangeEvent[]>())
 
-  // Every project's feed is a query of its own: the current one refetches on
-  // focus like the board does, the rest only when the list or window wakes up.
+  // Only the open project's feed is read for real; it refetches on focus and
+  // on the same timer as its board, so badges appear with the cards they mark.
   const feeds = useQueries({
     queries: projects
-      .filter((p) => p.available && (includeOthers || p.id === current))
+      .filter((p) => p.available && p.id === current)
       .map((p) => ({
         queryKey: ['changes', p.id],
         queryFn: () => api.changes(p.id),
-        refetchOnWindowFocus: p.id === current,
-        refetchInterval: p.id === current && pollMs > 0 ? pollMs : false,
-        staleTime: p.id === current ? 2_000 : 30_000,
+        refetchInterval: pollMs > 0 ? pollMs : false,
       })),
   })
+
+  // A project's peek from before you opened it is wrong once you have: its
+  // events are marks here now, some of them read. So every visit starts a
+  // new generation of its peek, and leaving asks afresh. Bumped while
+  // rendering, so not even one frame shows the old count.
+  const [visits, setVisits] = useState({ current, gen: {} as Record<string, number> })
+  if (visits.current !== current) {
+    const gen = { ...visits.gen }
+    if (visits.current) gen[visits.current] = (gen[visits.current] ?? 0) + 1
+    setVisits({ current, gen })
+  }
+
+  const others = useMemo(
+    () => projects.filter((p) => p.available && p.id !== current && includeOthers),
+    [projects, current, includeOthers],
+  )
+  const peeks = useQueries({
+    queries: others.map((p) => ({
+      queryKey: ['peek', p.id, visits.gen[p.id] ?? 0],
+      queryFn: () => api.peek(p.id),
+      staleTime: p.host ? PEEK_STALE_REMOTE : PEEK_STALE_LOCAL,
+      // A count that does not come is fine; hammering a dead host is not.
+      retry: false,
+    })),
+  })
+  const peekSignature = peeks
+    .map((q) => `${q.data?.project ?? ''}@${q.dataUpdatedAt}`)
+    .join('|')
+  const peeked = useMemo(
+    () =>
+      Object.fromEntries(
+        peeks.flatMap((q) => (q.data ? [[q.data.project, q.data.events]] : [])),
+      ) as Record<string, ChangeEvent[]>,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [peekSignature],
+  )
 
   // The effect below has to run when a feed *fetches*, not on every render;
   // dataUpdatedAt changes exactly then.
@@ -112,19 +213,7 @@ export function useUnread({ current, projects, includeOthers, pollMs = 0 }: Unre
     fresh.forEach((p) => applied.current.add(p.events))
     setUnread((prev) => {
       const next = { ...prev }
-      for (const payload of fresh) {
-        const marks = { ...(next[payload.project] ?? {}) }
-        for (const event of payload.events) {
-          const kind = kindOf(event)
-          if (!kind) {
-            delete marks[event.task]
-            continue
-          }
-          // "new" outranks "changed": a card you have never seen stays new.
-          marks[event.task] = marks[event.task] === 'new' ? 'new' : kind
-        }
-        next[payload.project] = marks
-      }
+      for (const payload of fresh) next[payload.project] = fold(next[payload.project], payload.events)
       return next
     })
   }, [payloads])
@@ -160,9 +249,13 @@ export function useUnread({ current, projects, includeOthers, pollMs = 0 }: Unre
     [unread, current],
   )
 
+  /** What a project's board would badge if you opened it now. */
   const countFor = useCallback(
-    (project: string) => Object.keys(unread[project] ?? {}).length,
-    [unread],
+    (project: string): UnreadSummary =>
+      summarize(
+        project === current ? unread[project] : fold(unread[project], peeked[project] ?? []),
+      ),
+    [unread, peeked, current],
   )
 
   return {
@@ -171,6 +264,6 @@ export function useUnread({ current, projects, includeOthers, pollMs = 0 }: Unre
     markAllRead,
     renameProject,
     countFor,
-    count: current ? countFor(current) : 0,
+    count: current ? countFor(current).count : 0,
   }
 }

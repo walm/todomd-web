@@ -296,6 +296,18 @@ func (s *Server) takeSelf(projectID string) map[string]bool {
 	return own
 }
 
+// ownChanges returns a copy of a project's self-changed task IDs and leaves
+// them in place, for a read that does not advance the cursor.
+func (s *Server) ownChanges(projectID string) map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	own := make(map[string]bool, len(s.self[projectID]))
+	for id := range s.self[projectID] {
+		own[id] = true
+	}
+	return own
+}
+
 type errorResponse struct {
 	Error string `json:"error"`
 }
