@@ -1,7 +1,7 @@
-// "Connect an agent": how to set a coding agent up next to this project's
-// TODO.md (todomd's skill teaches it the CLI) and a short prompt that has it
-// run `todomd watch` in a loop. Nothing is stored; each person copies the
-// prompt and changes the rules to suit them.
+// "Connect an agent": what a person sets up for a coding agent next to this
+// project's TODO.md (only todomd itself) and a short prompt that has the
+// agent read todomd's skill and run `todomd watch` in a loop. Nothing is
+// stored; each person copies the prompt and changes the rules to suit them.
 
 /** The parts of a project the prompt needs, as /api/projects lists them. */
 export interface AgentProject {
@@ -87,9 +87,12 @@ export function fileFlag(project: AgentProject): string {
   return path.endsWith('/TODO.md') || path === 'TODO.md' ? '' : ` -f ${shellQuote(path)}`
 }
 
-/** Writes .claude/skills/todomd/SKILL.md: the CLI, the watch loop and the
- *  default rules, for the agent to read. */
-export const SKILL_INSTALL = 'todomd skill --install'
+/** All a person has to run before the prompt: getting a new enough todomd.
+ *  Nothing when this machine's todomd is known to be new enough; the agent
+ *  reads the skill itself. */
+export function setupCommands(todomdVersion: string | undefined): string[] {
+  return todomdNewEnough(todomdVersion) ? [] : ['todomd upgrade']
+}
 
 /** What it takes to have the board on todomd.online as well: a login on the
  *  machine the agent runs on, and a link, unless the file has one already. */
@@ -102,11 +105,14 @@ export function agentPrompt({ project, boards, agent = 'agent' }: AgentPromptInp
   const { inbox, working, done } = flowBoards(boards)
   const f = fileFlag(project)
   const name = shellQuote(agent)
-  const where = host ? `${path} on this machine (${host})` : path
+  const where = host ? `${path}, here on ${host}` : path
+  const here = host ? ` here on ${host}` : ''
   const everyCommand = f ? `\nPass \`${f.trim()}\` to every todomd command.` : ''
 
-  return `Use the todomd skill to work from my board "${project.name}"
-(${where}).${everyCommand}
+  return `Before you start: run \`todomd skill\`${here} and follow it (or
+\`todomd skill --install\` to keep it as a skill).
+
+Then work from my board "${project.name}" (${where}).${everyCommand}
 Run this in a loop and act on the events it prints by the rules below,
 until I tell you to stop:
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SKILL_INSTALL,
   agentPrompt,
   fileFlag,
   fileLocation,
   flowBoards,
   onlineCommands,
+  setupCommands,
   shellQuote,
   startCommands,
   todomdNewEnough,
@@ -100,8 +100,11 @@ describe('fileFlag', () => {
 })
 
 describe('setup commands', () => {
-  it('installs the skill', () => {
-    expect(SKILL_INSTALL).toBe('todomd skill --install')
+  it('is only getting a new enough todomd: the agent reads the skill itself', () => {
+    expect(setupCommands('v0.13.0')).toEqual([])
+    expect(setupCommands('v0.12.0')).toEqual(['todomd upgrade'])
+    expect(setupCommands(undefined)).toEqual(['todomd upgrade'])
+    expect(setupCommands('v0.9.0').join(' ')).not.toMatch(/skill|login|link/)
   })
 
   it('logs in and links a board that is not on todomd.online yet', () => {
@@ -120,9 +123,16 @@ describe('setup commands', () => {
 describe('agentPrompt', () => {
   const prompt = agentPrompt({ project: local, boards: ['Inbox', 'Doing', 'Done'] })
 
-  it('uses the skill and names the project and its file', () => {
-    expect(prompt).toMatch(/^Use the todomd skill to work from my board "todomd-web"/)
-    expect(prompt).toContain('(/Users/me/src/todomd-web/TODO.md)')
+  it('starts by having the agent read the skill itself', () => {
+    expect(prompt.split('\n').slice(0, 2)).toEqual([
+      'Before you start: run `todomd skill` and follow it (or',
+      '`todomd skill --install` to keep it as a skill).',
+    ])
+  })
+
+  it('names the project and its file', () => {
+    expect(prompt).toContain('work from my board "todomd-web" (/Users/me/src/todomd-web/TODO.md).')
+    expect(prompt).not.toContain('-f ')
   })
 
   it('loops on todomd watch, skipping its own writes', () => {
@@ -154,7 +164,8 @@ describe('agentPrompt', () => {
 
   it('uses the path on the host for a project over ssh', () => {
     const p = agentPrompt({ project: remote, boards: ['Backlog', 'In Progress', 'Done'] })
-    expect(p).toContain('(/srv/app/TODO.md on this machine (deploy@web1))')
+    expect(p).toContain('run `todomd skill` here on deploy@web1 and follow it')
+    expect(p).toContain('(/srv/app/TODO.md, here on deploy@web1)')
     expect(p).not.toContain('deploy@web1:/srv')
   })
 

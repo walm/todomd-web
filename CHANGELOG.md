@@ -2,15 +2,16 @@
 
 ## Unreleased
 
-- **A simpler "Connect an agent".** Setup is now: todomd v0.13.0 or newer,
-  `todomd skill --install` in the file's folder, and a short prompt — use
-  the todomd skill, run `todomd watch` in a loop, act on the events by your
-  rules. The rules keep their own section to edit, with the board's real
+- **A simpler "Connect an agent".** The only thing to run yourself is
+  getting todomd v0.13.0 or newer; then start your agent in the file's
+  folder with a short prompt that has it run `todomd skill` (or
+  `todomd skill --install`) first, then `todomd watch` in a loop, acting on
+  the events by your rules. The rules keep their own section to edit, with the board's real
   names. `todomd watch` also syncs a board linked to todomd.online both
   ways, so an agent no longer misses your online changes, and there is no
   `todomd sync --watch` to keep running next to it. The dialog shows
-  `todomd login` (and `todomd link`) only as the step for todomd.online; a
-  local board needs neither.
+  `todomd login` (once per machine) and `todomd link` only as an optional
+  line for todomd.online; a local board needs neither.
 
 ## v0.13.0
 

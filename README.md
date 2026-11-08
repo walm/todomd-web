@@ -278,17 +278,17 @@ work.
 
 The robot in the header — and a banner above the board until you dismiss it
 — opens **Connect an agent**: how to set a coding agent (Claude Code, Codex,
-…) up to work this board, and a short prompt to paste into it. Three steps,
-on the machine the file is on:
+…) up to work this board, and a short prompt to paste into it. On the
+machine the file is on:
 
 1. **todomd v0.13.0 or newer** (`todomd upgrade`), for `todomd watch` and
-   `todomd skill`. The dialog checks this machine's version.
-2. **The todomd skill**: `cd` to the file's folder and run
-   `todomd skill --install`, which writes `.claude/skills/todomd/SKILL.md`
-   — the CLI, the watch loop and the default rules, for the agent to read.
-   Other agents can be pointed at that file from `AGENTS.md`.
-3. **The prompt**: use the todomd skill, run
-   `todomd watch --as agent --ignore-author agent --json` in a loop, and act
+   `todomd skill`. The dialog checks this machine's version. That is all
+   you run yourself for a local board.
+2. **Start the agent in the file's folder and give it the prompt.** The
+   prompt starts with "Before you start: run `todomd skill` and follow it
+   (or `todomd skill --install` to keep it as a skill)" — the skill is the
+   CLI, the watch loop and the default rules — then has the agent run
+   `todomd watch --as agent --ignore-author agent --json` in a loop and act
    on the events by the rules that follow.
 
 The rules sit in their own section of the prompt, marked as yours to change,
@@ -303,11 +303,11 @@ prompt's rules only matter once you change them.
 linked to todomd.online it also syncs both ways, before, during and after
 the wait, so the agent sees what you change online and you see its replies.
 A local board needs no login and no link; to have it online too, run
-`todomd login` and `todomd link` in its folder, which the dialog shows as
-well. There is no second terminal and no `todomd sync --watch` to keep
+`todomd login` once per machine (you approve it in the browser) and
+`todomd link` in its folder, which the dialog shows as an optional line. There is no second terminal and no `todomd sync --watch` to keep
 running.
 
-For a project **over ssh**, the dialog says to set up and start the agent on
+For a project **over ssh**, the dialog says to get todomd and start the agent on
 that host, in the file's folder, since that is where todomd keeps the lock
 and the change cursor. A file not named `TODO.md` gets `-f <path>` in the
 prompt, as todomd would not find it on its own. "Don't show again" on the

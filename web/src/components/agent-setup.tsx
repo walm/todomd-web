@@ -6,10 +6,10 @@ import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import {
   MIN_TODOMD,
-  SKILL_INSTALL,
   agentPrompt,
   fileLocation,
   onlineCommands,
+  setupCommands,
   startCommands,
   todomdNewEnough,
   todomdTooOld,
@@ -74,10 +74,11 @@ function Step({ n, title, children }: { n: number; title: ReactNode; children: R
 }
 
 /**
- * "Connect an agent": how to have a coding agent work this board. It runs
- * on the machine the file is on, with todomd's skill installed, and loops on
- * `todomd watch`, which also syncs a board linked to todomd.online. Nothing
- * goes through todomd-web, and nothing here is saved.
+ * "Connect an agent": how to have a coding agent work this board. A person
+ * only gets todomd (and, for todomd.online, logs in); the prompt has the
+ * agent read todomd's skill and loop on `todomd watch`, which also syncs a
+ * board linked to todomd.online. It runs on the machine the file is on.
+ * Nothing goes through todomd-web, and nothing here is saved.
  */
 export function AgentSetup({
   open,
@@ -124,7 +125,7 @@ export function AgentSetup({
             <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                This machine has todomd {todomdVersion}, which can&apos;t do the setup below.
+                This machine has todomd {todomdVersion}, too old for the prompt below.
                 Upgrade it first:
               </span>
             </p>
@@ -139,61 +140,53 @@ export function AgentSetup({
               Check with {code('todomd --version')}, and upgrade an older one:
             </p>
           )}
-          {newEnough ? null : <CommandLine command="todomd upgrade" />}
+          {setupCommands(host ? undefined : todomdVersion).map((cmd) => (
+            <CommandLine key={cmd} command={cmd} />
+          ))}
+          <p className="text-xs text-muted-foreground">
+            {host ? (
+              <>
+                If the file is linked to todomd.online, also run {code('todomd login')} once on{' '}
+                {host} (you approve it in the browser).
+              </>
+            ) : linked ? (
+              <>
+                This board is linked to todomd.online. If this machine isn&apos;t logged in yet,
+                run {code('todomd login')} once (you approve it in the browser).
+              </>
+            ) : (
+              <>
+                That&apos;s all for a local board. To have it on todomd.online too, run{' '}
+                {online.map((cmd, i) => (
+                  <span key={cmd}>
+                    {i > 0 ? ', then ' : null}
+                    {code(cmd)}
+                  </span>
+                ))}{' '}
+                in its folder; {code('todomd login')} is once per machine (you approve it in the
+                browser).
+              </>
+            )}
+          </p>
         </Step>
 
         <Step
           n={2}
-          title={<>Install the todomd skill {host ? <>on {host}</> : 'next to the file'}</>}
+          title={
+            <>
+              Start your agent {host ? <>on {host}</> : 'next to the file'} and give it this
+              prompt
+            </>
+          }
         >
-          <p className="text-muted-foreground">
-            The skill teaches the agent the todomd CLI, the <em>watch</em> loop and the default
-            rules. Run it in the project&apos;s folder; it writes{' '}
-            {code('.claude/skills/todomd/SKILL.md')} for Claude Code (other agents: point{' '}
-            {code('AGENTS.md')} at that file, or paste what {code('todomd skill')} prints).
-          </p>
-          {[...commands, SKILL_INSTALL].map((cmd) => (
+          {commands.map((cmd) => (
             <CommandLine key={cmd} command={cmd} />
           ))}
-          {linked ? (
-            <>
-              <p className="text-muted-foreground">
-                This board is linked to todomd.online: {code('todomd watch')} syncs it both ways
-                while the agent waits. If this machine isn&apos;t logged in yet:
-              </p>
-              {online.map((cmd) => (
-                <CommandLine key={cmd} command={cmd} />
-              ))}
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {host ? (
-                <>
-                  If the file is linked to todomd.online, {host} needs a login too (
-                  {code('todomd login')}); the agent&apos;s {code('todomd watch')} then does the
-                  syncing.
-                </>
-              ) : (
-                <>
-                  A local board needs no login. To have it on todomd.online too, run{' '}
-                  {online.map((cmd, i) => (
-                    <span key={cmd}>
-                      {i > 0 ? ' and ' : null}
-                      {code(cmd)}
-                    </span>
-                  ))}{' '}
-                  here; the agent&apos;s {code('todomd watch')} then does the syncing.
-                </>
-              )}
-            </p>
-          )}
-        </Step>
-
-        <Step n={3} title="Start the agent there and give it this prompt">
           <div className="flex items-start justify-between gap-3">
             <p className="text-muted-foreground">
-              The <em>Rules</em> section is yours to change: edit it to match how you like to work.
-              The agent&apos;s comments turn up on the board badged, like any other change.
+              It has the agent read todomd&apos;s skill, then watch the board. The <em>Rules</em>{' '}
+              section is yours to change: edit it to match how you like to work. The agent&apos;s
+              comments turn up on the board badged, like any other change.
             </p>
             <Button size="sm" variant="outline" onClick={() => void copy(prompt)}>
               {copied ? <Check /> : <Copy />}
