@@ -1,6 +1,7 @@
-// "Connect an agent": where to start a coding agent and a ready-made prompt
-// that has it watch this project's TODO.md with the todomd CLI. Nothing is
-// stored; each person copies the prompt and changes the rules to suit them.
+// "Connect an agent": how to set a coding agent up next to this project's
+// TODO.md (todomd's skill teaches it the CLI) and a short prompt that has it
+// run `todomd watch` in a loop. Nothing is stored; each person copies the
+// prompt and changes the rules to suit them.
 
 /** The parts of a project the prompt needs, as /api/projects lists them. */
 export interface AgentProject {
@@ -79,36 +80,39 @@ export function startCommands(project: AgentProject): string[] {
   return host ? [`ssh ${shellQuote(host)}`, cd] : [cd]
 }
 
+/** `-f <path>` where todomd wouldn't find the file by itself: started in the
+ *  file's folder, it finds a `TODO.md` there, but no other name. */
+export function fileFlag(project: AgentProject): string {
+  const { path } = fileLocation(project)
+  return path.endsWith('/TODO.md') || path === 'TODO.md' ? '' : ` -f ${shellQuote(path)}`
+}
+
+/** Writes .claude/skills/todomd/SKILL.md: the CLI, the watch loop and the
+ *  default rules, for the agent to read. */
+export const SKILL_INSTALL = 'todomd skill --install'
+
+/** What it takes to have the board on todomd.online as well: a login on the
+ *  machine the agent runs on, and a link, unless the file has one already. */
+export function onlineCommands(project: AgentProject, linked: boolean): string[] {
+  return linked ? ['todomd login'] : ['todomd login', `todomd link${fileFlag(project)}`]
+}
+
 export function agentPrompt({ project, boards, agent = 'agent' }: AgentPromptInput): string {
   const { host, path } = fileLocation(project)
   const { inbox, working, done } = flowBoards(boards)
-  const f = `-f ${shellQuote(path)}`
-  const as = `--as ${shellQuote(agent)}`
-  const where = host
-    ? `${path} on this machine (${host}). I watch the same file from
-todomd-web on my own computer, over ssh.`
-    : `${path}, which I have open in todomd-web.`
+  const f = fileFlag(project)
+  const name = shellQuote(agent)
+  const where = host ? `${path} on this machine (${host})` : path
+  const everyCommand = f ? `\nPass \`${f.trim()}\` to every todomd command.` : ''
 
-  return `You are working on the todomd board "${project.name}". Its cards live in
-${where}
-Use the \`todomd\` CLI for every board change, always with
-\`${f}\`; don't edit the file by hand.
+  return `Use the todomd skill to work from my board "${project.name}"
+(${where}).${everyCommand}
+Run this in a loop and act on the events it prints by the rules below,
+until I tell you to stop:
 
-## How to watch the board
+  todomd watch --as ${name} --ignore-author ${name} --json${f}
 
-Loop until I tell you to stop:
-
-1. Wait for changes:
-   todomd changes --wait ${as} --ignore-author ${shellQuote(agent)} --json ${f}
-   (It returns when cards are added, moved, updated or commented on, and
-   skips your own writes. On "timed_out": true, just run it again.)
-2. For each event, read the card with \`todomd show <id> ${f}\`
-   and act on it by the rules below.
-3. Go back to step 1.
-
-Write as yourself so I can tell your comments apart:
-- Comment:  todomd comment <id> "<text>" --author ${shellQuote(agent)} ${as} ${f}
-- Move:     todomd move <id> --to "<board>" ${as} ${f}
+(If your shell cuts off long commands, add \`--timeout 100s\`.)
 
 ## Rules (change these to fit how you work)
 
@@ -129,18 +133,32 @@ Write as yourself so I can tell your comments apart:
 `
 }
 
-/** The first todomd with `changes --wait`, which the prompt's loop needs. */
-export const MIN_TODOMD = 'v0.10.0'
+/** The first todomd with `watch` and `skill`, which the setup and the
+ *  prompt need. */
+export const MIN_TODOMD = 'v0.13.0'
+
+/** How a version compares with MIN_TODOMD: negative when older, 0 or more
+ *  when new enough, undefined when it doesn't parse (a dev build). */
+function compareToMin(version: string | undefined): number | undefined {
+  const parse = (v: string) => /^v?(\d+)\.(\d+)\.(\d+)/.exec(v)?.slice(1).map(Number)
+  const have = version ? parse(version) : undefined
+  const need = parse(MIN_TODOMD)!
+  if (!have) return undefined
+  for (let i = 0; i < 3; i++) {
+    if (have[i] !== need[i]) return have[i] - need[i]
+  }
+  return 0
+}
 
 /** True only for a version that parses and is older than MIN_TODOMD: a dev
  *  build or an unknown version gets the benefit of the doubt. */
 export function todomdTooOld(version: string | undefined): boolean {
-  const parse = (v: string) => /^v?(\d+)\.(\d+)\.(\d+)/.exec(v)?.slice(1).map(Number)
-  const have = version ? parse(version) : undefined
-  const need = parse(MIN_TODOMD)!
-  if (!have) return false
-  for (let i = 0; i < 3; i++) {
-    if (have[i] !== need[i]) return have[i] < need[i]
-  }
-  return false
+  const cmp = compareToMin(version)
+  return cmp !== undefined && cmp < 0
+}
+
+/** True only for a version that parses and is MIN_TODOMD or newer. */
+export function todomdNewEnough(version: string | undefined): boolean {
+  const cmp = compareToMin(version)
+  return cmp !== undefined && cmp >= 0
 }

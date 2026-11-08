@@ -277,29 +277,41 @@ work.
 ## 🤖 Connect an agent
 
 The robot in the header — and a banner above the board until you dismiss it
-— opens **Connect an agent**: where to start a coding agent (Claude Code,
-Codex, …) and a ready-made prompt to paste into it. The agent then watches
-the board's own `TODO.md` with the todomd CLI. There is no login, no link and
-no sync: the file is the whole connection.
+— opens **Connect an agent**: how to set a coding agent (Claude Code, Codex,
+…) up to work this board, and a short prompt to paste into it. Three steps,
+on the machine the file is on:
 
-The prompt is built from the board you are looking at — its real file path
-(`-f /path/to/TODO.md` on every command) and its board names — and has the
-agent:
+1. **todomd v0.13.0 or newer** (`todomd upgrade`), for `todomd watch` and
+   `todomd skill`. The dialog checks this machine's version.
+2. **The todomd skill**: `cd` to the file's folder and run
+   `todomd skill --install`, which writes `.claude/skills/todomd/SKILL.md`
+   — the CLI, the watch loop and the default rules, for the agent to read.
+   Other agents can be pointed at that file from `AGENTS.md`.
+3. **The prompt**: use the todomd skill, run
+   `todomd watch --as agent --ignore-author agent --json` in a loop, and act
+   on the events by the rules that follow.
 
-- wait with `todomd changes --wait --as agent --ignore-author agent --json`,
-  which skips its own writes, and write with `--author agent --as agent`;
-- answer a new card in Backlog in one short comment, without starting;
-- pick a card up when you comment **GO** or move it to In Progress, and leave
-  short progress comments;
-- when done, comment what changed and how to check it, and move the card to
-  Done; when stuck, ask on the card; never delete cards.
+The rules sit in their own section of the prompt, marked as yours to change,
+with the board's real names: answer a new card in Backlog in one short
+comment, without starting; pick a card up when you comment **GO** or move it
+to In Progress, with short progress comments; when done, comment what
+changed and how to check it, and move the card to Done; when stuck, ask on
+the card; never delete cards. The skill has the same defaults, so the
+prompt's rules only matter once you change them.
 
-Those rules sit in their own section of the prompt, marked as yours to
-change. For a project **over ssh**, the dialog says to start the agent on
-that host, in the file's directory, since that is where todomd keeps the lock
-and the change cursor. Needs **todomd v0.10.0 or newer** where the agent
-runs. "Don't show again" on the banner is remembered per browser; the × hides
-it until the next visit.
+`todomd watch` waits for the next change and prints it — and for a file
+linked to todomd.online it also syncs both ways, before, during and after
+the wait, so the agent sees what you change online and you see its replies.
+A local board needs no login and no link; to have it online too, run
+`todomd login` and `todomd link` in its folder, which the dialog shows as
+well. There is no second terminal and no `todomd sync --watch` to keep
+running.
+
+For a project **over ssh**, the dialog says to set up and start the agent on
+that host, in the file's folder, since that is where todomd keeps the lock
+and the change cursor. A file not named `TODO.md` gets `-f <path>` in the
+prompt, as todomd would not find it on its own. "Don't show again" on the
+banner is remembered per browser; the × hides it until the next visit.
 
 ## 🧩 The HTTP API
 
