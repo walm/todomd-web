@@ -3,10 +3,11 @@
 ## Unreleased
 
 - **A new icon.** Three grey glass lanes with the Markdown mark and a tick on
-  the front one, the same icon as the todomd CLI. It is the favicon (all
-  three lanes, even at 16 px), the home-screen and install icon, and the
-  README logo. A `favicon.ico` joins the SVG for browsers that ask for one,
-  and installs get a real maskable icon instead of the regular one cropped.
+  the front one, the same icon as the todomd CLI. It is the home-screen and
+  install icon and the README logo; the favicon is a stack of three cards,
+  the front one ticked, drawn to stay legible at 16 px. A `favicon.ico`
+  joins the SVG for browsers that ask for one, and installs get a real
+  maskable icon instead of the regular one cropped.
 
 ## v0.14.0
 
