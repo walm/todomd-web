@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **A new icon.** Three grey glass lanes with the Markdown mark and a tick on
+  the front one, the same icon as the todomd CLI. It is the favicon, the
+  home-screen and install icon, and the README logo. A `favicon.ico` joins
+  the SVG for browsers that ask for one, and installs get a real maskable
+  icon instead of the regular one cropped.
+
 ## v0.14.0
 
 - **A simpler "Connect an agent".** The only thing to run yourself is
