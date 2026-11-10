@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.14.1
 
 - **A new icon.** Three grey glass lanes with the Markdown mark and a tick on
   the front one, the same icon as the todomd CLI. It is the home-screen and
