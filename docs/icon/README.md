@@ -1,18 +1,20 @@
 # The app icon
 
-`web/public/favicon.svg` is the source: todomd's dark tile and MD badge with
-its checklist swapped for a board, one card carrying the green outline the UI
-uses for "an agent touched this".
+Three glass lanes with the Markdown mark and a tick on the front one, in the
+neutral grey **clear-dark** style: the same icon as the todomd CLI
+(todomd.online uses the violet set). The files are exported from
+todomd-online by `design/app-icon/web.sh clear-dark`; nothing in this repo
+generates them. To change the icon, re-export there and copy the files over
+rather than editing them by hand.
 
-The PNGs — `apple-touch-icon.png` (iOS home screen), `icon-192.png` /
-`icon-512.png` (web app manifest) and `docs/logo.png` (the README header) —
-are generated from it:
+| File | What |
+| --- | --- |
+| `web/public/favicon.svg` | the small (32 px) drawing, cropped to the squircle |
+| `web/public/favicon.ico` | 16 and 32 px, for browsers that ask for `/favicon.ico` |
+| `web/public/apple-touch-icon.png` | 180 px, full bleed (iOS rounds it) |
+| `web/public/icon-192.png`, `icon-512.png` | manifest icons, on Apple's grid with a transparent margin |
+| `web/public/icon-maskable-512.png` | manifest maskable icon, the lanes inside the 80% safe circle |
+| `docs/logo.png` | the README header (512 px, same as `icon-512.png`) |
 
-```sh
-sh docs/icon/make.sh
-```
-
-It renders the SVG in headless Chrome through agent-browser, which the demo
-recorder already needs, and which by definition agrees with what a browser
-will draw. iOS ignores SVG for home-screen icons, which is why the PNGs exist
-at all.
+The manifest doesn't list `favicon.svg`: it is the small drawing, and
+browsers may pick an `any`-sized SVG for a large install icon.
