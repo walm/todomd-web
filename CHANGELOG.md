@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.15.0
 
 - **Card links.** An open card has a **Links** section under the
   description: split from/into, blocks/blocked by, related and duplicate
