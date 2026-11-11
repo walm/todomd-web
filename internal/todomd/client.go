@@ -297,6 +297,31 @@ func (c *Client) Comment(ctx context.Context, id, author, text string) (*Task, e
 	return runJSON[Task](ctx, c, "comment", id, text, "--author", author, "--json")
 }
 
+// AddLink stores "id kind to" on the task id and returns that task with its
+// links. todomd checks the kind, that to is on the board and isn't id, and
+// the 50-link limit; a link the board already has, stored on either card, is
+// left as it is.
+func (c *Client) AddLink(ctx context.Context, id, kind, to string) (*Task, error) {
+	return runJSON[Task](ctx, c, "links", "add", id, kind, to, "--json")
+}
+
+// RemoveLinks removes the links between id and to, wherever they are stored.
+// A non-empty kind removes only that relation, read from id's side. todomd
+// exits 2 (NotFound) when there is no such link.
+func (c *Client) RemoveLinks(ctx context.Context, id, to, kind string) ([]RemovedLink, error) {
+	args := []string{"links", "rm", id, to, "--json"}
+	if kind != "" {
+		args = append(args, "--kind", kind)
+	}
+	v, err := runJSON[struct {
+		Removed []RemovedLink `json:"removed"`
+	}](ctx, c, args...)
+	if err != nil {
+		return nil, err
+	}
+	return v.Removed, nil
+}
+
 // Delete removes a task and returns what it was.
 func (c *Client) Delete(ctx context.Context, id string) (*Task, error) {
 	return runJSON[Task](ctx, c, "delete", id, "--yes", "--json")

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from './client'
-import type { AttachTo, BoardResponse, NewProject, NewTask, TaskPatch } from './types'
+import type { AttachTo, BoardResponse, LinkKind, NewProject, NewTask, TaskPatch } from './types'
 
 /** Query keys are scoped by project, so switching boards is a cache hit and
  *  each project refetches on its own. */
@@ -67,6 +67,24 @@ export function useAddComment(project: string) {
     ({ id, author, text }: { id: string; author: string; text: string }) =>
       api.addComment(project, id, author, text),
     { onError: 'Could not add the comment' },
+  )
+}
+
+export function useLinkTask(project: string) {
+  return useBoardMutation(
+    project,
+    ({ id, kind, to }: { id: string; kind: LinkKind; to: string }) =>
+      api.linkTask(project, id, kind, to),
+    { onError: 'Could not link the cards' },
+  )
+}
+
+export function useUnlinkTask(project: string) {
+  return useBoardMutation(
+    project,
+    ({ id, to, kind }: { id: string; to: string; kind?: LinkKind }) =>
+      api.unlinkTask(project, id, to, kind),
+    { onError: 'Could not remove the link' },
   )
 }
 

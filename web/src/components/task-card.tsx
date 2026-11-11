@@ -1,5 +1,6 @@
 import { MessageSquare, CalendarDays } from 'lucide-react'
 import type { Task } from '@/api/types'
+import { LinkMarks } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
 import { Badge } from '@/components/ui/badge'
 import { dueUrgency, formatDue } from '@/lib/due'
@@ -48,6 +49,7 @@ export function TaskCard({ task, unread, dragging, className, ...props }: TaskCa
       {(task.tags.length > 0 ||
         task.due ||
         task.comments.length > 0 ||
+        (task.links?.length ?? 0) > 0 ||
         task.priority !== 'normal') && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <PriorityMark priority={task.priority} />
@@ -74,6 +76,7 @@ export function TaskCard({ task, unread, dragging, className, ...props }: TaskCa
               {task.comments.length}
             </span>
           )}
+          <LinkMarks task={task} />
         </div>
       )}
     </div>

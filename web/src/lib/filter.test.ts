@@ -59,3 +59,45 @@ describe('filtering', () => {
     expect(titles(filterBoards(boards(), '   '))).toHaveLength(3)
   })
 })
+
+describe('filtering on links', () => {
+  const linked = (): Board[] => [
+    {
+      name: 'Backlog',
+      tasks: [
+        {
+          ...task('aaaa', 'Blocked by open'),
+          links: [{ kind: 'blocked by', id: 'bbbb', title: 'Open', board: 'Backlog', stored_on: 'bbbb' }],
+        },
+        {
+          ...task('bbbb', 'Open'),
+          links: [{ kind: 'blocks', id: 'aaaa', title: 'Blocked by open', board: 'Backlog', stored_on: 'bbbb' }],
+        },
+        {
+          ...task('cccc', 'Blocked by done'),
+          links: [{ kind: 'blocked by', id: 'dddd', title: 'Finished', board: 'Done', stored_on: 'cccc' }],
+        },
+        {
+          ...task('eeee', 'Blocked by a card off the board'),
+          links: [{ kind: 'blocked by', id: 'zzzz', title: null, board: null, stored_on: 'eeee' }],
+        },
+      ],
+    },
+    { name: 'Done', tasks: [{ ...task('dddd', 'Finished'), links: [] }] },
+  ]
+
+  it('is:blocked keeps cards blocked by an open card', () => {
+    expect(titles(filterBoards(linked(), 'is:blocked'))).toEqual(['Blocked by open'])
+  })
+
+  it('link:id keeps the cards linked to it, either way', () => {
+    expect(titles(filterBoards(linked(), 'link:bbbb'))).toEqual(['Blocked by open'])
+    expect(titles(filterBoards(linked(), 'link:#aaaa'))).toEqual(['Open'])
+    expect(titles(filterBoards(linked(), 'link:dd'))).toEqual(['Blocked by done'])
+  })
+
+  it('a board from an old todomd, without links, filters to nothing', () => {
+    expect(titles(filterBoards(boards(), 'is:blocked'))).toEqual([])
+    expect(titles(filterBoards(boards(), 'link:a1'))).toEqual([])
+  })
+})

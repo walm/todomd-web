@@ -93,6 +93,18 @@ see one priority only; a bare `high` still searches text, so a task called
 on every machine that touches the file — older versions cannot parse the
 token it writes.
 
+Cards can be **linked** — split from/into, blocks/blocked by, related,
+duplicate of — the same links `todomd links` and `todomd split` make. An
+open card lists its links both ways under the description, and below them
+the cards whose text mentions it, each with **Make link**. **Link a card**
+picks a kind and a card (cards this one mentions come first; ↑↓ ↵ esc on a
+laptop); × removes a link from whichever card stores it. A link is written
+once, as `- blocks 9e41` in the `#### Links` section of the card you made it
+on. Board cards show a link count, and an amber **blocked** while a card
+they are blocked by is still open (not on the last board); `is:blocked` and
+`link:9e41` filter on them. Links need **todomd v0.14.0 or newer**; with an
+older one the open card says so and the board shows none.
+
 On the board: click a card to open it, `n` for a new task, `/` to filter,
 `r` to reload, `p` to switch project (`1`–`9` jump straight to one), and `v`
 to swap between the board and a **list view** — everything in one column,
@@ -335,6 +347,8 @@ server remembering which one you are looking at.
 | `PATCH` | `/api/projects/{project}/tasks/{id}` | any of `{title, description, tags, due}`; `due: null` and `tags: []` clear |
 | `POST` | `/api/projects/{project}/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
 | `POST` | `/api/projects/{project}/tasks/{id}/comments` | `{author, text}` |
+| `POST` | `/api/projects/{project}/tasks/{id}/links` | `{kind, to}` — `todomd links add {id} kind to`, stored on `{id}`; returns the task |
+| `DELETE` | `/api/projects/{project}/tasks/{id}/links/{to}?kind=` | — removes the links between the two from whichever card stores them; `kind` (from `{id}`'s side) narrows it; 404 when there is none |
 | `DELETE` | `/api/projects/{project}/tasks/{id}` | — ; its attachments are removed with it |
 | `POST` | `/api/projects/{project}/tasks/{id}/attachments` | `multipart/form-data` with one or more `file` parts → `{attachments: [{name, path, size, type, markdown}]}`; writes nothing to the todo file |
 | `POST` | `/api/projects/{project}/drafts/{draft}/attachments` | as above, for a task not created yet; `draft` is 16–64 lowercase letters and digits of your choosing, and an unclaimed one is swept after a day |

@@ -144,6 +144,21 @@ func TestArgConstruction(t *testing.T) {
 			[]string{"--file", "/tmp/TODO.md", "delete", "3f2a", "--yes", "--json"},
 		},
 		{
+			"link keeps a two-word kind as one argument",
+			func(c *Client) error { _, err := c.AddLink(t.Context(), "3f2a", "blocked by", "9e41"); return err },
+			[]string{"--file", "/tmp/TODO.md", "links", "add", "3f2a", "blocked by", "9e41", "--json"},
+		},
+		{
+			"unlink every kind",
+			func(c *Client) error { _, err := c.RemoveLinks(t.Context(), "3f2a", "9e41", ""); return err },
+			[]string{"--file", "/tmp/TODO.md", "links", "rm", "3f2a", "9e41", "--json"},
+		},
+		{
+			"unlink one kind",
+			func(c *Client) error { _, err := c.RemoveLinks(t.Context(), "3f2a", "9e41", "split into"); return err },
+			[]string{"--file", "/tmp/TODO.md", "links", "rm", "3f2a", "9e41", "--json", "--kind", "split into"},
+		},
+		{
 			"changes",
 			func(c *Client) error {
 				_, err := c.Changes(t.Context(), "web", true, "ai")
@@ -180,6 +195,36 @@ func TestDecodesTask(t *testing.T) {
 	}
 	if len(got.Comments) != 1 || got.Comments[0].Author != "user" {
 		t.Errorf("comments = %+v", got.Comments)
+	}
+	// A todomd older than v0.14.0 sends no links: nil, so the UI is told
+	// null and hides them, rather than an empty list it can't tell apart.
+	if got.Links != nil {
+		t.Errorf("links from an old todomd = %+v, want nil", got.Links)
+	}
+}
+
+func TestDecodesLinks(t *testing.T) {
+	c, _ := fakeClient(t, `{"id":"3f2a","board":"Backlog","title":"x","tags":[],"priority":"normal","due":null,"description":"","comments":[],
+		"links":[{"kind":"blocked by","id":"9e41","title":"Other","board":"Done","stored_on":"9e41"},
+		         {"kind":"related","id":"zzzz","title":null,"board":null,"stored_on":"3f2a"}]}`, 0)
+	got, err := c.Show(t.Context(), "3f2a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Links) != 2 {
+		t.Fatalf("links = %+v", got.Links)
+	}
+	l := got.Links[0]
+	if l.Kind != "blocked by" || l.ID != "9e41" || *l.Title != "Other" || *l.Board != "Done" || l.StoredOn != "9e41" {
+		t.Errorf("first link = %+v", l)
+	}
+	if got.Links[1].Title != nil || got.Links[1].Board != nil {
+		t.Errorf("a link to a card off the board should have no title or board: %+v", got.Links[1])
+	}
+
+	c, _ = fakeClient(t, `{"id":"3f2a","board":"B","title":"x","tags":[],"priority":"normal","due":null,"description":"","comments":[],"links":[]}`, 0)
+	if got, err = c.Show(t.Context(), "3f2a"); err != nil || got.Links == nil {
+		t.Errorf("an empty list from a new todomd must stay non-nil: %v %#v", err, got.Links)
 	}
 }
 

@@ -1,5 +1,6 @@
 import type {
   AttachTo,
+  LinkKind,
   AttachmentsResponse,
   BoardResponse,
   ChangesResponse,
@@ -11,6 +12,7 @@ import type {
   ProjectsResponse,
   TaskPatch,
   TaskResponse,
+  UnlinkResponse,
   UpdateStatus,
   UpgradeResult,
 } from './types'
@@ -116,6 +118,22 @@ export const api = {
       method: 'POST',
       body: body({ author, text }),
     }),
+
+  /** Stores "id kind to" on the card id, as `todomd links add` does; the
+   *  other card shows it inverted. */
+  linkTask: (project: string, id: string, kind: LinkKind, to: string) =>
+    request<TaskResponse>(`${scope(project)}/tasks/${id}/links`, {
+      method: 'POST',
+      body: body({ kind, to }),
+    }),
+
+  /** Removes the links between id and to, from whichever card stores them;
+   *  kind, read from id's side, narrows it to one relation. */
+  unlinkTask: (project: string, id: string, to: string, kind?: LinkKind) =>
+    request<UnlinkResponse>(
+      `${scope(project)}/tasks/${id}/links/${encodeURIComponent(to)}${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`,
+      { method: 'DELETE' },
+    ),
 
   deleteTask: (project: string, id: string) =>
     request<void>(`${scope(project)}/tasks/${id}`, { method: 'DELETE' }),

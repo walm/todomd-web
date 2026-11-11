@@ -1,5 +1,6 @@
 import { CalendarDays, MessageSquare } from 'lucide-react'
 import type { TaskCardProps } from '@/components/task-card'
+import { LinkMarks } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
 import { Badge } from '@/components/ui/badge'
 import { dueUrgency, formatDue } from '@/lib/due'
@@ -54,6 +55,7 @@ export function TaskRow({ task, unread, dragging, className, ...props }: TaskCar
             {task.comments.length}
           </span>
         )}
+        <LinkMarks task={task} />
         {task.due && (
           <span
             className={cn(

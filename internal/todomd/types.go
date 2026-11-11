@@ -23,6 +23,19 @@ const (
 	PriorityLow    Priority = "low"
 )
 
+// Link is one of a task's links as todomd (v0.14.0 and newer) reports it,
+// computed in both directions: Kind reads from this task's side ("blocked
+// by" when the other card stores "blocks"), StoredOn names the card whose
+// `#### Links` section holds the line. Title and Board are nil when the other
+// card isn't on the board (archived or deleted).
+type Link struct {
+	Kind     string  `json:"kind"`
+	ID       string  `json:"id"`
+	Title    *string `json:"title"`
+	Board    *string `json:"board"`
+	StoredOn string  `json:"stored_on"`
+}
+
 // Task mirrors todomd's pinned task JSON schema.
 type Task struct {
 	ID          string    `json:"id"`
@@ -33,6 +46,17 @@ type Task struct {
 	Due         *string   `json:"due"`
 	Description string    `json:"description"`
 	Comments    []Comment `json:"comments"`
+	// Links is nil, and passed on as null, when todomd predates links
+	// (v0.14.0); it is never nil from a todomd that has them, so the UI can
+	// tell "no links" from "can't show links".
+	Links []Link `json:"links"`
+}
+
+// RemovedLink is one link `todomd links rm` took off a card.
+type RemovedLink struct {
+	StoredOn string `json:"stored_on"`
+	Kind     string `json:"kind"`
+	ID       string `json:"id"`
 }
 
 // Board is a column of tasks.

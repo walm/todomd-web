@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- **Card links.** An open card has a **Links** section under the
+  description: split from/into, blocks/blocked by, related and duplicate
+  links, both ways, with the other card's id, title and board (done cards
+  struck through, "blocked by" an open card in amber). Below them,
+  **Mentioned in** lists the cards whose text names this one, each with
+  **Make link**. **Link a card** opens a picker — kind chips, a search by
+  title or id, the cards this one mentions first — as a popover driven by
+  the keys on a laptop and a bottom sheet on a phone; × removes a link
+  wherever it is stored. Everything goes through `todomd links add|rm`, so
+  the file reads back exactly as the CLI writes it (`- blocks 9e41` under
+  `#### Links`). Board cards and list rows show a link count and an amber
+  **blocked** mark, and the filter takes `is:blocked` and `link:9e41`.
+  Needs todomd v0.14.0; with an older one the card says to upgrade and
+  nothing else changes.
+
 ## v0.14.1
 
 - **A new icon.** Three grey glass lanes with the Markdown mark and a tick on
