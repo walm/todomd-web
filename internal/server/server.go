@@ -183,6 +183,8 @@ func (s *Server) Handler() http.Handler {
 	route("DELETE", p+"/tasks/{id}", s.withProject(s.handleDeleteTask))
 	route("POST", p+"/tasks/{id}/move", s.withProject(s.handleMoveTask))
 	route("POST", p+"/tasks/{id}/comments", s.withProject(s.handleAddComment))
+	route("POST", p+"/tasks/{id}/links", s.withProject(s.handleAddLink))
+	route("DELETE", p+"/tasks/{id}/links/{to}", s.withProject(s.handleRemoveLink))
 	route("POST", p+"/tasks/{id}/attachments", s.withProject(s.handleUploadAttachment))
 	route("POST", p+"/drafts/{draft}/attachments", s.withProject(s.handleUploadDraftAttachment))
 	route("GET", p+"/attachments/{task}/{name}", s.withProject(s.handleServeAttachment))

@@ -9,6 +9,7 @@ import { AppHeader } from '@/components/app-header'
 import { BoardColumn } from '@/components/board-column'
 import { BoardList } from '@/components/board-list'
 import { BoardDnd } from '@/components/board-dnd'
+import { LinksProvider } from '@/components/links'
 import { ProjectSwitcher } from '@/components/project-switcher'
 import { TaskCreate } from '@/components/task-create'
 import { TaskDetail } from '@/components/task-detail'
@@ -149,134 +150,136 @@ export default function App() {
   const noProjects = projects.isSuccess && list.length === 0
 
   return (
-    <div className="flex h-dvh flex-col bg-background text-foreground">
-      <UpdateBanner />
-      <AppHeader
-        project={
-          <ProjectSwitcher
-            projects={list}
-            current={current}
-            unreadFor={countFor}
-            onSelect={selectProject}
-            onRenamed={handleRenamed}
-            configurable={configurable}
-            open={switching}
-            onOpenChange={setSwitching}
+    <LinksProvider boards={boards} onOpen={openTask}>
+      <div className="flex h-dvh flex-col bg-background text-foreground">
+        <UpdateBanner />
+        <AppHeader
+          project={
+            <ProjectSwitcher
+              projects={list}
+              current={current}
+              unreadFor={countFor}
+              onSelect={selectProject}
+              onRenamed={handleRenamed}
+              configurable={configurable}
+              open={switching}
+              onOpenChange={setSwitching}
+            />
+          }
+          file={current?.file}
+          query={query}
+          onQueryChange={setQuery}
+          canEdit={!!currentId}
+          view={view}
+          onToggleView={toggleView}
+          onAdd={() => setCreatingIn(boardNames[0] ?? 'Backlog')}
+          onRefresh={() => void qc.invalidateQueries()}
+          refreshing={board.isFetching || projects.isFetching}
+          unreadCount={count}
+          onClearUnread={() => currentId && markAllRead(currentId)}
+          onAgentSetup={current && board.isSuccess ? () => setAgentOpen(true) : undefined}
+        />
+
+        {current && board.isSuccess && <AgentBanner onSetUp={() => setAgentOpen(true)} />}
+
+        <main className="min-h-0 grow">
+          {noProjects && (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                No todo files yet.
+              </p>
+              <Button size="sm" onClick={() => setSwitching(true)}>
+                Add a project
+              </Button>
+            </div>
+          )}
+
+          {!noProjects && (board.isPending || projects.isPending) && (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Reading the file…
+            </div>
+          )}
+
+          {board.isError && (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <AlertTriangle className="size-6 text-destructive" />
+              <p className="max-w-prose text-sm">{board.error.message}</p>
+              <Button size="sm" variant="outline" onClick={() => void board.refetch()}>
+                Try again
+              </Button>
+            </div>
+          )}
+
+          {/* Drop positions come from the unfiltered board: dropping a card
+              "onto" another means taking its place in the file, which has to
+              hold regardless of what the filter hides. */}
+          {board.isSuccess && (
+            <BoardDnd boards={boards} onMove={(args) => move.mutate(args)}>
+              {view === 'list' ? (
+                <BoardList
+                  project={currentId!}
+                  boards={filtered}
+                  totals={totals}
+                  unreadOf={unreadOf}
+                  onOpen={openTask}
+                  onAdd={setCreatingIn}
+                />
+              ) : (
+                <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-3 pb-4 md:snap-none">
+                  {filtered.map((column, i) => (
+                    <BoardColumn
+                      key={column.name}
+                      project={currentId!}
+                      board={column}
+                      total={boards[i].tasks.length}
+                      unreadOf={unreadOf}
+                      onOpen={openTask}
+                      onAdd={setCreatingIn}
+                    />
+                  ))}
+                </div>
+              )}
+            </BoardDnd>
+          )}
+        </main>
+
+        {task && currentId && (
+          <TaskDetail
+            project={currentId}
+            task={task}
+            boards={boardNames}
+            defaultAuthor={config.data?.author ?? 'user'}
+            attachments={current?.attachments}
+            syncedImages={current?.syncedImages}
+            attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
+            open
+            onOpenChange={(next) => !next && closeTask()}
           />
-        }
-        file={current?.file}
-        query={query}
-        onQueryChange={setQuery}
-        canEdit={!!currentId}
-        view={view}
-        onToggleView={toggleView}
-        onAdd={() => setCreatingIn(boardNames[0] ?? 'Backlog')}
-        onRefresh={() => void qc.invalidateQueries()}
-        refreshing={board.isFetching || projects.isFetching}
-        unreadCount={count}
-        onClearUnread={() => currentId && markAllRead(currentId)}
-        onAgentSetup={current && board.isSuccess ? () => setAgentOpen(true) : undefined}
-      />
-
-      {current && board.isSuccess && <AgentBanner onSetUp={() => setAgentOpen(true)} />}
-
-      <main className="min-h-0 grow">
-        {noProjects && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              No todo files yet.
-            </p>
-            <Button size="sm" onClick={() => setSwitching(true)}>
-              Add a project
-            </Button>
-          </div>
         )}
 
-        {!noProjects && (board.isPending || projects.isPending) && (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            <Loader2 className="mr-2 size-4 animate-spin" />
-            Reading the file…
-          </div>
+        {current && (
+          <AgentSetup
+            open={agentOpen}
+            onOpenChange={setAgentOpen}
+            project={current}
+            boards={boardNames}
+            todomdVersion={config.data?.todomdVersion}
+          />
         )}
 
-        {board.isError && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <AlertTriangle className="size-6 text-destructive" />
-            <p className="max-w-prose text-sm">{board.error.message}</p>
-            <Button size="sm" variant="outline" onClick={() => void board.refetch()}>
-              Try again
-            </Button>
-          </div>
+        {currentId && (
+          <TaskCreate
+            project={currentId}
+            open={creatingIn !== null}
+            onOpenChange={(next) => !next && setCreatingIn(null)}
+            boards={boardNames}
+            board={creatingIn ?? boardNames[0] ?? 'Backlog'}
+            attachments={current?.attachments}
+            attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
+          />
         )}
-
-        {/* Drop positions come from the unfiltered board: dropping a card
-            "onto" another means taking its place in the file, which has to
-            hold regardless of what the filter hides. */}
-        {board.isSuccess && (
-          <BoardDnd boards={boards} onMove={(args) => move.mutate(args)}>
-            {view === 'list' ? (
-              <BoardList
-                project={currentId!}
-                boards={filtered}
-                totals={totals}
-                unreadOf={unreadOf}
-                onOpen={openTask}
-                onAdd={setCreatingIn}
-              />
-            ) : (
-              <div className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto px-3 pt-3 pb-4 md:snap-none">
-                {filtered.map((column, i) => (
-                  <BoardColumn
-                    key={column.name}
-                    project={currentId!}
-                    board={column}
-                    total={boards[i].tasks.length}
-                    unreadOf={unreadOf}
-                    onOpen={openTask}
-                    onAdd={setCreatingIn}
-                  />
-                ))}
-              </div>
-            )}
-          </BoardDnd>
-        )}
-      </main>
-
-      {task && currentId && (
-        <TaskDetail
-          project={currentId}
-          task={task}
-          boards={boardNames}
-          defaultAuthor={config.data?.author ?? 'user'}
-          attachments={current?.attachments}
-          syncedImages={current?.syncedImages}
-          attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
-          open
-          onOpenChange={(next) => !next && closeTask()}
-        />
-      )}
-
-      {current && (
-        <AgentSetup
-          open={agentOpen}
-          onOpenChange={setAgentOpen}
-          project={current}
-          boards={boardNames}
-          todomdVersion={config.data?.todomdVersion}
-        />
-      )}
-
-      {currentId && (
-        <TaskCreate
-          project={currentId}
-          open={creatingIn !== null}
-          onOpenChange={(next) => !next && setCreatingIn(null)}
-          boards={boardNames}
-          board={creatingIn ?? boardNames[0] ?? 'Backlog'}
-          attachments={current?.attachments}
-          attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
-        />
-      )}
-    </div>
+      </div>
+    </LinksProvider>
   )
 }

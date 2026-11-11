@@ -9,6 +9,7 @@ import { Markdown } from '@/components/markdown-lazy'
 import { AttachField, type AttachTarget } from '@/components/attach-field'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
+import { LinksSection } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
 import { PrioritySelect } from '@/components/priority-select'
 import { useIsMobile } from '@/hooks/use-media-query'
@@ -139,6 +140,8 @@ export function TaskDetail({
         ) : (
           <p className="text-sm text-muted-foreground italic">No description</p>
         )}
+
+        <LinksSection project={project} task={task} />
 
         <Comments task={task} target={target} defaultAuthor={defaultAuthor} synced={syncedImages} />
 

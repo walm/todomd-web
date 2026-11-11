@@ -10,6 +10,31 @@ export interface Comment {
 /** todomd always sends one, so nothing here infers the default. */
 export type Priority = 'high' | 'normal' | 'low'
 
+/** A link's relation, read from the card it is shown on. Each is written
+ *  from either end: a card storing `blocks X` shows on X as `blocked by`. */
+export type LinkKind =
+  | 'split from'
+  | 'split into'
+  | 'blocks'
+  | 'blocked by'
+  | 'related'
+  | 'duplicate of'
+  | 'duplicated by'
+
+/** One of a card's links as todomd v0.14.0+ computes it, both directions:
+ *  the ones the card stores in its `#### Links` section, and the ones other
+ *  cards store about it, read from this side. */
+export interface Link {
+  kind: LinkKind
+  /** The other card. */
+  id: string
+  /** null when the other card isn't on the board (archived or deleted). */
+  title: string | null
+  board: string | null
+  /** The card whose `#### Links` section holds the line: this one or the other. */
+  stored_on: string
+}
+
 export interface Task {
   id: string
   board: string
@@ -19,6 +44,9 @@ export interface Task {
   due: string | null
   description: string
   comments: Comment[]
+  /** null (or absent) when the installed todomd predates links (v0.14.0);
+   *  an empty list otherwise. */
+  links?: Link[] | null
 }
 
 export interface Board {
@@ -173,6 +201,13 @@ export interface NewTask {
   /** The draft files were attached to while writing; they move to the new
    *  task and the description's links follow. */
   draft?: string
+}
+
+/** What `todomd links rm` took away, and from which card. */
+export interface UnlinkResponse {
+  project: string
+  removed: { stored_on: string; kind: LinkKind; id: string }[]
+  rev: string
 }
 
 /** Fields left out are unchanged; `due: null` and `tags: []` clear them. */
