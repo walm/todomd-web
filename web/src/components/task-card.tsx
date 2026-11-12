@@ -2,8 +2,10 @@ import { MessageSquare, CalendarDays } from 'lucide-react'
 import type { Task } from '@/api/types'
 import { LinkMarks } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
+import { StickerCorner } from '@/components/stickers'
 import { Badge } from '@/components/ui/badge'
 import { dueUrgency, formatDue } from '@/lib/due'
+import { stickerOf } from '@/lib/stickers'
 import { cn } from '@/lib/utils'
 
 export interface TaskCardProps extends React.ComponentProps<'div'> {
@@ -24,7 +26,7 @@ export function TaskCard({ task, unread, dragging, className, ...props }: TaskCa
     <div
       data-task={task.id}
       className={cn(
-        'group cursor-pointer rounded-lg border bg-card p-2.5 text-left shadow-sm transition-colors',
+        'group relative cursor-pointer rounded-lg border bg-card p-2.5 text-left shadow-sm transition-colors',
         'hover:border-foreground/20 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
         unread === 'new' && 'border-emerald-500/60',
         unread === 'changed' && 'border-amber-500/60',
@@ -43,8 +45,17 @@ export function TaskCard({ task, unread, dragging, className, ...props }: TaskCa
             )}
           />
         )}
-        <p className="grow text-sm leading-snug font-medium wrap-anywhere">{task.title}</p>
+        <p
+          className={cn(
+            'grow text-sm leading-snug font-medium wrap-anywhere',
+            // Room for the sticker, so the title wraps before it.
+            stickerOf(task) && 'pr-5',
+          )}
+        >
+          {task.title}
+        </p>
       </div>
+      <StickerCorner task={task} />
 
       {(task.tags.length > 0 ||
         task.due ||

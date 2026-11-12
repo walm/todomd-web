@@ -12,6 +12,7 @@ import { BoardSelect } from '@/components/board-select'
 import { LinksSection } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
 import { PrioritySelect } from '@/components/priority-select'
+import { StickerChip } from '@/components/stickers'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { dueUrgency, formatDue } from '@/lib/due'
 import { parseTags } from '@/lib/tags'
@@ -86,6 +87,7 @@ export function TaskDetail({
             onChange={(board) => move.mutate({ id: task.id, to: board, pos: 0 })}
             disabled={move.isPending}
           />
+          <StickerChip task={task} />
           {!editing && <PriorityMark priority={task.priority} />}
           {task.due && !editing && (
             <span

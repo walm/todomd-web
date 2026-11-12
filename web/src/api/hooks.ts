@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from './client'
-import type { AttachTo, BoardResponse, LinkKind, NewProject, NewTask, TaskPatch } from './types'
+import type {
+  AttachTo,
+  BoardResponse,
+  LinkKind,
+  NewProject,
+  NewTask,
+  StickerName,
+  TaskPatch,
+} from './types'
 
 /** Query keys are scoped by project, so switching boards is a cache hit and
  *  each project refetches on its own. */
@@ -59,6 +67,41 @@ export function useUpdateTask(project: string) {
     ({ id, patch }: { id: string; patch: TaskPatch }) => api.updateTask(project, id, patch),
     { onError: 'Could not save the task' },
   )
+}
+
+/** Setting a sticker is optimistic, like a move: the card shows it at once
+ *  and only loses it again if todomd says no. */
+export function useSetSticker(project: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, sticker }: { id: string; sticker: StickerName | null }) =>
+      api.updateTask(project, id, { sticker }),
+    onMutate: async ({ id, sticker }) => {
+      await qc.cancelQueries({ queryKey: boardKey(project) })
+      const previous = qc.getQueryData<BoardResponse>(boardKey(project))
+      if (previous) qc.setQueryData(boardKey(project), applySticker(previous, id, sticker))
+      return { previous }
+    },
+    onError: (err: Error, _args, context) => {
+      if (context?.previous) qc.setQueryData(boardKey(project), context.previous)
+      toast.error('Could not set the sticker', { description: err.message })
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: boardKey(project) }),
+  })
+}
+
+export function applySticker(
+  board: BoardResponse,
+  id: string,
+  sticker: StickerName | null,
+): BoardResponse {
+  return {
+    ...board,
+    boards: board.boards.map((b) => ({
+      ...b,
+      tasks: b.tasks.map((t) => (t.id === id ? { ...t, sticker } : t)),
+    })),
+  }
 }
 
 export function useAddComment(project: string) {

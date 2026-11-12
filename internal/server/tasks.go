@@ -4,12 +4,16 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/walm/todomd-web/internal/attach"
 	"github.com/walm/todomd-web/internal/project"
 	"github.com/walm/todomd-web/internal/todomd"
 )
+
+// A sticker name as todomd lists them: fire, star, …, red, amber, ….
+var stickerRe = regexp.MustCompile(`^[a-z]{1,16}$`)
 
 type taskResponse struct {
 	Project string       `json:"project"`
@@ -83,8 +87,9 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request, entry 
 }
 
 // handleUpdateTask applies a partial update. Fields absent from the body are
-// left alone; `"due": null` and `"tags": []` clear them. That distinction is
-// why the body is decoded key by key rather than into a struct of pointers.
+// left alone; `"due": null`, `"tags": []` and `"sticker": null` clear them.
+// That distinction is why the body is decoded key by key rather than into a
+// struct of pointers.
 func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request, entry project.Entry, client *todomd.Client) {
 	var raw map[string]json.RawMessage
 	if err := decode(r, &raw); err != nil {
@@ -140,6 +145,17 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request, entry 
 				}
 			}
 			u.Due = &v
+		case "sticker":
+			// A name ("fire", "red"), or null to remove it. todomd knows
+			// which names there are; this only keeps it from being a flag.
+			v := ""
+			if string(val) != "null" {
+				if err := json.Unmarshal(val, &v); err != nil || !stickerRe.MatchString(v) {
+					s.writeError(w, invalid("sticker must be a sticker name, e.g. fire or red, or null"))
+					return
+				}
+			}
+			u.Sticker = &v
 		default:
 			s.writeError(w, invalid("unknown field "+key))
 			return

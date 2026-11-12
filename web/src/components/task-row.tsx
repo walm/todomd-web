@@ -2,6 +2,7 @@ import { CalendarDays, MessageSquare } from 'lucide-react'
 import type { TaskCardProps } from '@/components/task-card'
 import { LinkMarks } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
+import { StickerCorner } from '@/components/stickers'
 import { Badge } from '@/components/ui/badge'
 import { dueUrgency, formatDue } from '@/lib/due'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,7 @@ export function TaskRow({ task, unread, dragging, className, ...props }: TaskCar
     <div
       data-task={task.id}
       className={cn(
-        'group flex cursor-pointer items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left shadow-xs transition-colors',
+        'group relative flex cursor-pointer items-center gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-left shadow-xs transition-colors',
         'hover:border-foreground/20 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
         unread === 'new' && 'border-emerald-500/60',
         unread === 'changed' && 'border-amber-500/60',
@@ -69,6 +70,7 @@ export function TaskRow({ task, unread, dragging, className, ...props }: TaskCar
           </span>
         )}
       </div>
+      <StickerCorner task={task} size="row" />
     </div>
   )
 }
