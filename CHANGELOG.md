@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.16.1
 
 - **A new icon.** A stack of three cards, the front one with the Markdown
   mark and a tick, in neutral greys: the same icon as the todomd CLI. The
