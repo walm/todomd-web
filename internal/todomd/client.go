@@ -272,6 +272,14 @@ func (c *Client) Update(ctx context.Context, id string, u Update) (*Task, error)
 			args = append(args, "--due", *u.Due)
 		}
 	}
+	if u.Sticker != nil {
+		// todomd (v0.15.0+) checks the name; "none" removes it.
+		sticker := *u.Sticker
+		if sticker == "" {
+			sticker = "none"
+		}
+		args = append(args, "--sticker", sticker)
+	}
 	return runJSON[Task](ctx, c, args...)
 }
 

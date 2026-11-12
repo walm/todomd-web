@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- **Card stickers.** A card can carry one sticker, as on todomd.online: an
+  emoji (🔥 ⭐ 👀 🚧 ✅ 🎯 ⚡ 💡 🐛 🚀 ❓ ❤️) sticking out over its top-right
+  corner, or a red, amber, green, blue or violet ribbon across it, on board
+  cards and list rows alike. An open card shows it as a chip next to the
+  board select (a quiet **Sticker** when there is none). Set it without
+  opening the card: click the sticker or the ☺+ that shows on hover, press
+  `s` on the card under the pointer or the one with focus, or long-press a
+  card on a phone for a bottom sheet. The picker takes `1`–`9` for the first
+  nine emoji and `0` for none. Everything goes through `todomd update
+  --sticker`, so the file reads back exactly as the CLI writes it
+  (`<!-- sticker: fire -->`). The filter takes `sticker:fire`, `sticker:🔥`,
+  `sticker:red`, `has:sticker` (or `sticker:any`) and `sticker:none`. Needs
+  todomd v0.15.0; with an older one the board shows no stickers and the
+  open card says to upgrade.
+
 ## v0.15.0
 
 - **Card links.** An open card has a **Links** section under the

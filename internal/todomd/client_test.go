@@ -2,6 +2,7 @@ package todomd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -144,6 +145,24 @@ func TestArgConstruction(t *testing.T) {
 			[]string{"--file", "/tmp/TODO.md", "delete", "3f2a", "--yes", "--json"},
 		},
 		{
+			"sticker",
+			func(c *Client) error {
+				name := "fire"
+				_, err := c.Update(t.Context(), "3f2a", Update{Sticker: &name})
+				return err
+			},
+			[]string{"--file", "/tmp/TODO.md", "update", "3f2a", "--json", "--sticker", "fire"},
+		},
+		{
+			"remove the sticker",
+			func(c *Client) error {
+				none := ""
+				_, err := c.Update(t.Context(), "3f2a", Update{Sticker: &none})
+				return err
+			},
+			[]string{"--file", "/tmp/TODO.md", "update", "3f2a", "--json", "--sticker", "none"},
+		},
+		{
 			"link keeps a two-word kind as one argument",
 			func(c *Client) error { _, err := c.AddLink(t.Context(), "3f2a", "blocked by", "9e41"); return err },
 			[]string{"--file", "/tmp/TODO.md", "links", "add", "3f2a", "blocked by", "9e41", "--json"},
@@ -200,6 +219,38 @@ func TestDecodesTask(t *testing.T) {
 	// null and hides them, rather than an empty list it can't tell apart.
 	if got.Links != nil {
 		t.Errorf("links from an old todomd = %+v, want nil", got.Links)
+	}
+}
+
+// The sticker key has three states, and each has to reach the UI as sent:
+// absent (todomd before v0.15.0), null (no sticker) and a name.
+func TestStickerRoundTrip(t *testing.T) {
+	base := `{"id":"3f2a","board":"B","title":"x","tags":[],"priority":"normal","due":null,"description":"","comments":[]`
+	for _, tt := range []struct {
+		name, in, want string
+	}{
+		{"old todomd", base + `}`, ""},
+		{"no sticker", base + `,"sticker":null}`, `"sticker":null`},
+		{"fire", base + `,"sticker":"fire"}`, `"sticker":"fire"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, _ := fakeClient(t, tt.in, 0)
+			got, err := c.Show(t.Context(), "3f2a")
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := json.Marshal(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.want == "" {
+				if strings.Contains(string(out), "sticker") {
+					t.Errorf("an old todomd's task gained a sticker key: %s", out)
+				}
+			} else if !strings.Contains(string(out), tt.want) {
+				t.Errorf("encoded %s, want %s in it", out, tt.want)
+			}
+		})
 	}
 }
 

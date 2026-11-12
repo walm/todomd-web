@@ -5,6 +5,8 @@
 // driving the CLI at the same time.
 package todomd
 
+import "encoding/json"
+
 // Comment is a dated note on a task, mirroring todomd's pinned JSON schema.
 type Comment struct {
 	Author string `json:"author"`
@@ -50,6 +52,42 @@ type Task struct {
 	// (v0.14.0); it is never nil from a todomd that has them, so the UI can
 	// tell "no links" from "can't show links".
 	Links []Link `json:"links"`
+	// Sticker is the card's sticker (todomd v0.15.0 and newer). Its key is
+	// left out when todomd predates stickers, and null when the card has
+	// none, so the UI can tell "no sticker" from "can't show stickers".
+	Sticker Sticker `json:"sticker,omitzero"`
+}
+
+// Sticker is a card's sticker as todomd reports it: a name such as "fire" or
+// "red", or none. Present records whether todomd sent the field at all — an
+// older todomd doesn't, and that has to survive the trip to the UI.
+type Sticker struct {
+	Name    string // "" for no sticker
+	Present bool
+}
+
+// IsZero reports a sticker todomd didn't send, so `omitzero` leaves it out.
+func (s Sticker) IsZero() bool { return !s.Present }
+
+// MarshalJSON writes the name, or null for none.
+func (s Sticker) MarshalJSON() ([]byte, error) {
+	if s.Name == "" {
+		return []byte("null"), nil
+	}
+	return json.Marshal(s.Name)
+}
+
+// UnmarshalJSON is only called when the key is there, null included.
+func (s *Sticker) UnmarshalJSON(b []byte) error {
+	var name *string
+	if err := json.Unmarshal(b, &name); err != nil {
+		return err
+	}
+	*s = Sticker{Present: true}
+	if name != nil {
+		s.Name = *name
+	}
+	return nil
 }
 
 // RemovedLink is one link `todomd links rm` took off a card.
@@ -139,10 +177,11 @@ type Update struct {
 	Tags        *[]string
 	Priority    *Priority
 	Due         *string
+	Sticker     *string // a name, or "" for none
 }
 
 // IsEmpty reports whether the update would change nothing.
 func (u Update) IsEmpty() bool {
 	return u.Title == nil && u.Description == nil && u.Tags == nil &&
-		u.Priority == nil && u.Due == nil
+		u.Priority == nil && u.Due == nil && u.Sticker == nil
 }

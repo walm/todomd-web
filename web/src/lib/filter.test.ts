@@ -101,3 +101,42 @@ describe('filtering on links', () => {
     expect(titles(filterBoards(boards(), 'link:a1'))).toEqual([])
   })
 })
+
+describe('filtering on stickers', () => {
+  const stickered = (): Board[] => [
+    {
+      name: 'Backlog',
+      tasks: [
+        { ...task('aaaa', 'On fire'), sticker: 'fire' },
+        { ...task('bbbb', 'Red ribbon'), sticker: 'red' },
+        { ...task('cccc', 'Loved'), sticker: 'heart' },
+        { ...task('dddd', 'Plain'), sticker: null },
+      ],
+    },
+  ]
+
+  it('sticker:name and sticker:emoji keep the cards with that sticker', () => {
+    expect(titles(filterBoards(stickered(), 'sticker:fire'))).toEqual(['On fire'])
+    expect(titles(filterBoards(stickered(), 'sticker:🔥'))).toEqual(['On fire'])
+    expect(titles(filterBoards(stickered(), 'Sticker:RED'))).toEqual(['Red ribbon'])
+    // With or without the variation selector.
+    expect(titles(filterBoards(stickered(), 'sticker:❤️'))).toEqual(['Loved'])
+    expect(titles(filterBoards(stickered(), 'sticker:❤'))).toEqual(['Loved'])
+  })
+
+  it('has:sticker and sticker:any keep every stickered card, sticker:none the rest', () => {
+    expect(titles(filterBoards(stickered(), 'has:sticker'))).toEqual(['On fire', 'Red ribbon', 'Loved'])
+    expect(titles(filterBoards(stickered(), 'sticker:any'))).toEqual(['On fire', 'Red ribbon', 'Loved'])
+    expect(titles(filterBoards(stickered(), 'sticker:none'))).toEqual(['Plain'])
+  })
+
+  it('combines with text, and an unknown sticker is text', () => {
+    expect(titles(filterBoards(stickered(), 'has:sticker red'))).toEqual(['Red ribbon'])
+    expect(titles(filterBoards(stickered(), 'sticker:unicorn'))).toEqual([])
+  })
+
+  it('a board from an old todomd, without stickers, has none', () => {
+    expect(titles(filterBoards(boards(), 'has:sticker'))).toEqual([])
+    expect(titles(filterBoards(boards(), 'sticker:none'))).toHaveLength(3)
+  })
+})

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyMove } from './hooks'
+import { applyMove, applySticker } from './hooks'
 import type { BoardResponse, Task } from './types'
 
 const task = (id: string, board: string): Task => ({
@@ -67,5 +67,15 @@ describe('applyMove', () => {
     const before = board()
     expect(applyMove(before, { id: 'nope', to: 'Doing', pos: 1 })).toBe(before)
     expect(applyMove(before, { id: 'a', to: 'Nowhere', pos: 1 })).toBe(before)
+  })
+})
+
+describe('applySticker', () => {
+  it('sets and clears one card’s sticker, leaving the rest alone', () => {
+    const set = applySticker(board(), 'b', 'fire')
+    expect(set.boards[0].tasks.map((t) => t.sticker)).toEqual([undefined, 'fire', undefined])
+    const cleared = applySticker(set, 'b', null)
+    expect(cleared.boards[0].tasks[1].sticker).toBeNull()
+    expect(cleared.boards[1]).toEqual(board().boards[1])
   })
 })

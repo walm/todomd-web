@@ -35,6 +35,26 @@ export interface Link {
   stored_on: string
 }
 
+/** A card's sticker, by name: twelve emoji and five ribbon colours. */
+export type StickerName =
+  | 'fire'
+  | 'star'
+  | 'eyes'
+  | 'wip'
+  | 'check'
+  | 'target'
+  | 'zap'
+  | 'idea'
+  | 'bug'
+  | 'ship'
+  | 'question'
+  | 'heart'
+  | 'red'
+  | 'amber'
+  | 'green'
+  | 'blue'
+  | 'violet'
+
 export interface Task {
   id: string
   board: string
@@ -47,6 +67,9 @@ export interface Task {
   /** null (or absent) when the installed todomd predates links (v0.14.0);
    *  an empty list otherwise. */
   links?: Link[] | null
+  /** The card's sticker, null for none; absent when the installed todomd
+   *  predates stickers (v0.15.0). */
+  sticker?: StickerName | null
 }
 
 export interface Board {
@@ -218,4 +241,6 @@ export interface TaskPatch {
   /** "normal" is the cleared state; there is nothing else to clear. */
   priority?: Priority
   due?: string | null
+  /** null removes it. */
+  sticker?: StickerName | null
 }

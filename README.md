@@ -105,6 +105,18 @@ they are blocked by is still open (not on the last board); `is:blocked` and
 `link:9e41` filter on them. Links need **todomd v0.14.0 or newer**; with an
 older one the open card says so and the board shows none.
 
+A card can carry a **sticker** so it stands out: one of twelve emoji (🔥 ⭐ 👀
+🚧 ✅ 🎯 ⚡ 💡 🐛 🚀 ❓ ❤️) or a red, amber, green, blue or violet corner
+ribbon — the same ones `todomd sticker` sets. It sits in the card's top-right
+corner on the board and in the list, and next to the board select on an open
+card. Click it (or the ☺+ that shows on hover), press `s` with the pointer on
+a card, or long-press a card on a phone to pick one: `1`–`9` choose the first
+nine emoji, `0` removes it. It is saved as `<!-- sticker: fire -->` under the
+card's metadata, through `todomd update --sticker`. `sticker:fire` (or
+`sticker:🔥`, `sticker:red`), `has:sticker` and `sticker:none` filter on them.
+Stickers need **todomd v0.15.0 or newer**; with an older one the board shows
+none and the open card says to upgrade.
+
 On the board: click a card to open it, `n` for a new task, `/` to filter,
 `r` to reload, `p` to switch project (`1`–`9` jump straight to one), and `v`
 to swap between the board and a **list view** — everything in one column,
@@ -344,7 +356,7 @@ server remembering which one you are looking at.
 | `GET` | `/api/projects/{project}/board` | — |
 | `GET` | `/api/projects/{project}/changes` | — (advances that project's `web` cursor) |
 | `POST` | `/api/projects/{project}/tasks` | `{board?, title, description?, tags?, due?, draft?}` — `draft` hands over files attached while writing, and rewrites their links |
-| `PATCH` | `/api/projects/{project}/tasks/{id}` | any of `{title, description, tags, due}`; `due: null` and `tags: []` clear |
+| `PATCH` | `/api/projects/{project}/tasks/{id}` | any of `{title, description, tags, priority, due, sticker}`; `due: null`, `tags: []` and `sticker: null` clear; `sticker` is a name such as `fire` or `red` |
 | `POST` | `/api/projects/{project}/tasks/{id}/move` | `{to?, pos?}` — `pos` is 1-based after removal, omit to append |
 | `POST` | `/api/projects/{project}/tasks/{id}/comments` | `{author, text}` |
 | `POST` | `/api/projects/{project}/tasks/{id}/links` | `{kind, to}` — `todomd links add {id} kind to`, stored on `{id}`; returns the task |
