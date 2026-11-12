@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **A new icon.** A stack of three cards, the front one with the Markdown
+  mark and a tick, in neutral greys: the same icon as the todomd CLI. The
+  favicon and the home-screen and install icon are now one drawing, and it
+  is the README logo too.
+
 ## v0.16.0
 
 - **Card stickers.** A card can carry one sticker, as on todomd.online: an
