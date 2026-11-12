@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.16.0
 
 - **Card stickers.** A card can carry one sticker, as on todomd.online: an
   emoji (🔥 ⭐ 👀 🚧 ✅ 🎯 ⚡ 💡 🐛 🚀 ❓ ❤️) sticking out over its top-right
