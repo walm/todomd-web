@@ -13,9 +13,10 @@ import { LinksSection } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
 import { PrioritySelect } from '@/components/priority-select'
 import { StickerChip } from '@/components/stickers'
+import { TagField, addTags } from '@/components/tag-field'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { dueUrgency, formatDue } from '@/lib/due'
-import { parseTags } from '@/lib/tags'
+import type { TagCount } from '@/lib/tag-suggest'
 import { cn } from '@/lib/utils'
 
 const AUTHOR_KEY = 'todomd-web:author'
@@ -30,6 +31,8 @@ export interface TaskDetailProps {
   /** Where todomd keeps the images synced with todomd.online, if linked. */
   syncedImages?: string
   attachmentMaxBytes: number
+  /** The project's existing tags, for suggestions. */
+  tagCounts?: TagCount[]
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -42,6 +45,7 @@ export function TaskDetail({
   attachments,
   syncedImages,
   attachmentMaxBytes,
+  tagCounts = [],
   open,
   onOpenChange,
 }: TaskDetailProps) {
@@ -126,6 +130,7 @@ export function TaskDetail({
           <TaskFields
             task={task}
             target={target}
+            tagCounts={tagCounts}
             saving={update.isPending}
             onCancel={() => setEditing(false)}
             onSave={(patch) =>
@@ -183,6 +188,7 @@ export function TaskDetail({
 interface TaskFieldsProps {
   task: Task
   target: AttachTarget
+  tagCounts: TagCount[]
   saving: boolean
   onSave: (patch: {
     title: string
@@ -194,12 +200,12 @@ interface TaskFieldsProps {
   onCancel: () => void
 }
 
-/** The edit form. Tags are a comma/space separated list, matching how they
- *  read in the file (`#core #parser`). */
-function TaskFields({ task, target, saving, onSave, onCancel }: TaskFieldsProps) {
+/** The edit form. Tags are pills; in the file they read `#core #parser`. */
+function TaskFields({ task, target, tagCounts, saving, onSave, onCancel }: TaskFieldsProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description)
-  const [tags, setTags] = useState(task.tags.join(' '))
+  const [tags, setTags] = useState(task.tags)
+  const [tagText, setTagText] = useState('')
   const [priority, setPriority] = useState<Priority>(task.priority)
   const [due, setDue] = useState(task.due ?? '')
   // Saving while a file is still uploading would write a description without
@@ -211,7 +217,7 @@ function TaskFields({ task, target, saving, onSave, onCancel }: TaskFieldsProps)
     onSave({
       title: title.trim(),
       description,
-      tags: parseTags(tags),
+      tags: addTags(tags, [tagText]),
       priority,
       due: due || null,
     })
@@ -251,12 +257,14 @@ function TaskFields({ task, target, saving, onSave, onCancel }: TaskFieldsProps)
         className="min-h-32 font-mono text-base md:text-[0.8rem]"
       />
       <div className="flex flex-wrap gap-2">
-        <Input
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          aria-label="Tags"
+        <TagField
+          tags={tags}
+          onTagsChange={setTags}
+          text={tagText}
+          onTextChange={setTagText}
+          suggestions={tagCounts}
           placeholder="tags, space separated"
-          className="w-auto min-w-40 grow"
+          className="min-w-40 grow"
         />
         <PrioritySelect value={priority} onChange={setPriority} className="w-36 shrink-0" />
         <Input

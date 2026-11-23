@@ -16,6 +16,7 @@ import { TaskCreate } from '@/components/task-create'
 import { TaskDetail } from '@/components/task-detail'
 import { UpdateBanner } from '@/components/update-banner'
 import { filterBoards } from '@/lib/filter'
+import { countTags } from '@/lib/tag-suggest'
 import { readLocation, writeLocation } from '@/lib/location'
 import { useUnread } from '@/hooks/use-unread'
 import { useView } from '@/hooks/use-view'
@@ -113,6 +114,7 @@ export default function App() {
 
   const boards = useMemo(() => board.data?.boards ?? [], [board.data])
   const boardNames = useMemo(() => boards.map((b) => b.name), [boards])
+  const tagCounts = useMemo(() => countTags(boards), [boards])
   const filtered = useMemo(() => filterBoards(boards, query), [boards, query])
   // Pre-filter counts, so a filtered view can still say what it is hiding.
   const totals = useMemo(
@@ -171,6 +173,7 @@ export default function App() {
             file={current?.file}
             query={query}
             onQueryChange={setQuery}
+            tagCounts={tagCounts}
             canEdit={!!currentId}
             view={view}
             onToggleView={toggleView}
@@ -255,6 +258,7 @@ export default function App() {
               attachments={current?.attachments}
               syncedImages={current?.syncedImages}
               attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
+              tagCounts={tagCounts}
               open
               onOpenChange={(next) => !next && closeTask()}
             />
@@ -279,6 +283,7 @@ export default function App() {
               board={creatingIn ?? boardNames[0] ?? 'Backlog'}
               attachments={current?.attachments}
               attachmentMaxBytes={config.data?.attachmentMaxBytes ?? 0}
+              tagCounts={tagCounts}
             />
           )}
         </div>

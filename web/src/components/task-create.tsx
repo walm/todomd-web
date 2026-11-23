@@ -4,12 +4,13 @@ import { useCreateTask } from '@/api/hooks'
 import type { Priority } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { TagField, addTags } from '@/components/tag-field'
+import type { TagCount } from '@/lib/tag-suggest'
 import { AttachField } from '@/components/attach-field'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
 import { PrioritySelect } from '@/components/priority-select'
 import { newDraftId } from '@/lib/attach'
-import { parseTags } from '@/lib/tags'
 
 export interface TaskCreateProps {
   project: string
@@ -21,6 +22,8 @@ export interface TaskCreateProps {
   /** The project's attachment root; absent when it cannot take attachments. */
   attachments?: string
   attachmentMaxBytes: number
+  /** The project's existing tags, for suggestions. */
+  tagCounts?: TagCount[]
 }
 
 export function TaskCreate({
@@ -31,11 +34,13 @@ export function TaskCreate({
   board,
   attachments,
   attachmentMaxBytes,
+  tagCounts = [],
 }: TaskCreateProps) {
   const [target, setTarget] = useState(board)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [tags, setTags] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagText, setTagText] = useState('')
   const [priority, setPriority] = useState<Priority>('normal')
   const [due, setDue] = useState('')
   // The task has no id until it is created, so files pasted while writing it
@@ -50,7 +55,8 @@ export function TaskCreate({
       setTarget(board)
       setTitle('')
       setDescription('')
-      setTags('')
+      setTags([])
+      setTagText('')
       setPriority('normal')
       setDue('')
       setDraft(newDraftId())
@@ -65,7 +71,7 @@ export function TaskCreate({
         board: target,
         title: trimmed,
         description,
-        tags: parseTags(tags),
+        tags: addTags(tags, [tagText]),
         priority,
         due: due || null,
         draft: attachments ? draft : undefined,
@@ -116,12 +122,13 @@ export function TaskCreate({
         />
         <div className="flex flex-wrap items-center gap-2">
           <BoardSelect value={target} boards={boards} onChange={setTarget} />
-          <Input
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="tags"
-            aria-label="Tags"
-            className="h-8 w-auto min-w-32 grow text-base md:text-sm"
+          <TagField
+            tags={tags}
+            onTagsChange={setTags}
+            text={tagText}
+            onTextChange={setTagText}
+            suggestions={tagCounts}
+            className="grow"
           />
           <PrioritySelect value={priority} onChange={setPriority} className="w-36 shrink-0" />
           <Input

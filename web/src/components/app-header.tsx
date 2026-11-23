@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Bot, Columns3, List, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { TagInput } from '@/components/tag-input'
+import type { TagCount } from '@/lib/tag-suggest'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { View } from '@/hooks/use-view'
 import { cn } from '@/lib/utils'
@@ -12,6 +13,8 @@ export interface AppHeaderProps {
   file?: string
   query: string
   onQueryChange: (value: string) => void
+  /** The project's tags, suggested after `#` or `tag:` in the filter. */
+  tagCounts?: TagCount[]
   /** False when there is no project to add tasks to yet. */
   canEdit: boolean
   view: View
@@ -30,6 +33,7 @@ export function AppHeader({
   file,
   query,
   onQueryChange,
+  tagCounts = [],
   canEdit,
   view,
   onToggleView,
@@ -87,10 +91,12 @@ export function AppHeader({
             most of it; from sm up it settles at a fixed width. */}
         <div className="relative min-w-0 grow basis-0 sm:ml-auto sm:w-64 sm:grow-0 sm:basis-auto">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <TagInput
             ref={search}
+            mode="filter"
+            tags={tagCounts}
             value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
+            onValueChange={onQueryChange}
             placeholder="Filter — try !high"
             aria-label="Filter tasks"
             className="h-8 pl-7 text-base md:text-sm"
