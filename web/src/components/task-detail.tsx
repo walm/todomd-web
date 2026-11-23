@@ -13,10 +13,9 @@ import { LinksSection } from '@/components/links'
 import { PriorityMark } from '@/components/priority-mark'
 import { PrioritySelect } from '@/components/priority-select'
 import { StickerChip } from '@/components/stickers'
-import { TagInput } from '@/components/tag-input'
+import { TagField, addTags } from '@/components/tag-field'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { dueUrgency, formatDue } from '@/lib/due'
-import { parseTags } from '@/lib/tags'
 import type { TagCount } from '@/lib/tag-suggest'
 import { cn } from '@/lib/utils'
 
@@ -201,12 +200,12 @@ interface TaskFieldsProps {
   onCancel: () => void
 }
 
-/** The edit form. Tags are a comma/space separated list, matching how they
- *  read in the file (`#core #parser`). */
+/** The edit form. Tags are pills; in the file they read `#core #parser`. */
 function TaskFields({ task, target, tagCounts, saving, onSave, onCancel }: TaskFieldsProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description)
-  const [tags, setTags] = useState(task.tags.join(' '))
+  const [tags, setTags] = useState(task.tags)
+  const [tagText, setTagText] = useState('')
   const [priority, setPriority] = useState<Priority>(task.priority)
   const [due, setDue] = useState(task.due ?? '')
   // Saving while a file is still uploading would write a description without
@@ -218,7 +217,7 @@ function TaskFields({ task, target, tagCounts, saving, onSave, onCancel }: TaskF
     onSave({
       title: title.trim(),
       description,
-      tags: parseTags(tags),
+      tags: addTags(tags, [tagText]),
       priority,
       due: due || null,
     })
@@ -258,13 +257,14 @@ function TaskFields({ task, target, tagCounts, saving, onSave, onCancel }: TaskF
         className="min-h-32 font-mono text-base md:text-[0.8rem]"
       />
       <div className="flex flex-wrap gap-2">
-        <TagInput
-          value={tags}
-          onValueChange={setTags}
-          tags={tagCounts}
-          aria-label="Tags"
+        <TagField
+          tags={tags}
+          onTagsChange={setTags}
+          text={tagText}
+          onTextChange={setTagText}
+          suggestions={tagCounts}
           placeholder="tags, space separated"
-          wrapperClassName="min-w-40 grow"
+          className="min-w-40 grow"
         />
         <PrioritySelect value={priority} onChange={setPriority} className="w-36 shrink-0" />
         <Input

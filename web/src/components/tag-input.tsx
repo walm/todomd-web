@@ -1,5 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useId, useMemo, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { parseTags } from '@/lib/tags'
 import {
@@ -10,6 +9,7 @@ import {
   type TagMode,
 } from '@/lib/tag-suggest'
 import { cn } from '@/lib/utils'
+import { SuggestList } from '@/components/suggest-list'
 
 type InputProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'>
 
@@ -55,23 +55,6 @@ export function TagInput({
   }, [w, tags, value, mode])
 
   const shown = open && rows.length > 0
-  // The list is portalled out and placed against the input: a dialog's scroll
-  // area would otherwise clip it, and on a phone so would the sheet.
-  const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null)
-  useEffect(() => {
-    if (!shown) return
-    const place = () => {
-      const r = ref.current?.getBoundingClientRect()
-      if (r) setBox({ left: r.left, top: r.bottom + 4, width: r.width })
-    }
-    place()
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [shown, value])
   const at = Math.min(active, rows.length - 1)
   const optionId = (i: number) => `${id}-opt-${i}`
 
@@ -150,43 +133,16 @@ export function TagInput({
           onKeyDown?.(e)
         }}
       />
-      {shown && box && createPortal(
-        <ul
+      {shown && (
+        <SuggestList
           id={`${id}-list`}
-          role="listbox"
-          aria-label="Tag suggestions"
-          style={{ left: box.left, top: box.top, minWidth: Math.max(box.width, 160) }}
-          className="fixed z-[100] max-h-56 overflow-auto rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md"
-        >
-          {rows.map((row, i) => (
-            <li
-              key={row.create ? `create:${row.tag}` : row.tag}
-              id={optionId(i)}
-              role="option"
-              aria-selected={i === at}
-              // Keep focus in the input: the press must not blur it.
-              onMouseDown={(e) => e.preventDefault()}
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={() => pick(i)}
-              onMouseMove={() => setActive(i)}
-              className={cn(
-                'flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 select-none',
-                i === at && 'bg-accent text-accent-foreground',
-              )}
-            >
-              {row.create ? (
-                <span>
-                  Create “<span className="font-medium">{row.tag}</span>”
-                </span>
-              ) : (
-                <span className="truncate">
-                  {row.tag} <span className="text-muted-foreground">· {row.count}</span>
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>,
-        document.body,
+          rows={rows}
+          active={at}
+          anchor={ref}
+          optionId={optionId}
+          onPick={pick}
+          onHover={setActive}
+        />
       )}
     </div>
   )

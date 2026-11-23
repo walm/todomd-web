@@ -11,6 +11,12 @@
   leading `#` and inserts the existing spelling. The filter box suggests the
   same after `#` or `tag:`. It is an ARIA combobox, works by tap on a phone,
   and reads the tags from the board already loaded: no new API.
+- **Tags as pills.** In Add card and the edit form each tag is a small pill
+  inside the field, with a × (on hover or focus, always shown on touch) to
+  remove it. Comma, space or Enter, or picking a suggestion, turns the text
+  into a pill; Backspace in the empty input selects, then removes, the last
+  one; ←/→ walk the pills; pasting "a, b c" makes three. The filter box stays
+  plain text.
 
 ## v0.16.1
 
