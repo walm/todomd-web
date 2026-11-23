@@ -4,6 +4,8 @@ import { useCreateTask } from '@/api/hooks'
 import type { Priority } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { TagInput } from '@/components/tag-input'
+import type { TagCount } from '@/lib/tag-suggest'
 import { AttachField } from '@/components/attach-field'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
 import { BoardSelect } from '@/components/board-select'
@@ -21,6 +23,8 @@ export interface TaskCreateProps {
   /** The project's attachment root; absent when it cannot take attachments. */
   attachments?: string
   attachmentMaxBytes: number
+  /** The project's existing tags, for suggestions. */
+  tagCounts?: TagCount[]
 }
 
 export function TaskCreate({
@@ -31,6 +35,7 @@ export function TaskCreate({
   board,
   attachments,
   attachmentMaxBytes,
+  tagCounts = [],
 }: TaskCreateProps) {
   const [target, setTarget] = useState(board)
   const [title, setTitle] = useState('')
@@ -116,12 +121,14 @@ export function TaskCreate({
         />
         <div className="flex flex-wrap items-center gap-2">
           <BoardSelect value={target} boards={boards} onChange={setTarget} />
-          <Input
+          <TagInput
             value={tags}
-            onChange={(e) => setTags(e.target.value)}
+            onValueChange={setTags}
+            tags={tagCounts}
             placeholder="tags"
             aria-label="Tags"
-            className="h-8 w-auto min-w-32 grow text-base md:text-sm"
+            wrapperClassName="min-w-32 grow"
+            className="h-8 text-base md:text-sm"
           />
           <PrioritySelect value={priority} onChange={setPriority} className="w-36 shrink-0" />
           <Input

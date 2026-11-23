@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Tag suggestions.** Typing in a tags field (Add card and the card's edit
+  form) lists the project's existing tags that match the word: ones that start
+  with it first, then ones that contain it, most used first, each with how many
+  cards use it (`billing · 7`). ↑/↓ move, Enter or Tab pick, Esc closes, comma
+  or space ends a tag as before, and a last row, Create "foo", keeps new tags
+  possible. Tags already on the card are left out; matching ignores case and a
+  leading `#` and inserts the existing spelling. The filter box suggests the
+  same after `#` or `tag:`. It is an ARIA combobox, works by tap on a phone,
+  and reads the tags from the board already loaded: no new API.
+
 ## v0.16.1
 
 - **A new icon.** A stack of three cards, the front one with the Markdown
