@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.17.0
 
 - **Tag suggestions.** Typing in a tags field (Add card and the card's edit
   form) lists the project's existing tags that match the word: ones that start
